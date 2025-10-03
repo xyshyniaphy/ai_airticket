@@ -2,7 +2,7 @@
 
 ## 1. Project Overview
 
-An autonomous AI agent that searches for air tickets on https://www.tour.ne.jp, analyzes flight results, and sends summarized recommendations via Telegram. The agent is configured via YAML files and can be triggered on demand.
+An autonomous AI agent that searches for air tickets on https://www.tour.ne.jp, analyzes flight results, and sends summarized recommendations via Telegram. The agent is configured via a `.env` file and can be triggered on demand.
 
 ## 2. System Architecture
 
@@ -12,7 +12,7 @@ An autonomous AI agent that searches for air tickets on https://www.tour.ne.jp, 
 - **Web Scraping**: Selenium with headless Chrome
 - **AI Model**: Google Gemini Flash (for summary generation)
 - **Messaging**: Telegram Bot API
-- **Configuration**: YAML, python-dotenv
+- **Configuration**: python-dotenv
 - **Containerization**: Docker (Alpine-based multi-stage build)
 
 ### 2.2 Component Architecture
@@ -38,36 +38,25 @@ An autonomous AI agent that searches for air tickets on https://www.tour.ne.jp, 
 
 ## 3. Configuration
 
-The agent is configured using two types of files:
+The agent is configured using a single `.env` file. This file contains both secrets (like API keys) and search parameters. Using environment variables is a standard practice for containerized applications.
 
-- **`.env`**: For storing secrets like API keys.
-- **`config.yaml`**: For defining search parameters like origin, destinations, and dates.
+A `.env.sample` file is provided as a template. To run the agent, copy it to `.env` and fill in your secrets.
 
-This approach separates sensitive data from search configuration, allowing for easier management. The Python application will load configurations from both files on startup.
-
-### 3.1 Environment Variables (`.env`)
-Stores secrets. A `.env.sample` is provided as a template.
+**`.env` file structure:**
 ```
-TELEGRAM_BOT_TOKEN=<secret>
-GEMINI_API_KEY=<secret>
-```
+# Secrets
+TELEGRAM_BOT_TOKEN="YOUR_TELEGRAM_BOT_TOKEN"
+GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 
-### 3.2 Search Parameters (`config.yaml`)
-A YAML file that defines the search criteria. This allows for specifying multiple destinations and departure dates in a single run.
-
-```yaml
-# config.yaml
-origin: "TYO"
-destinations:
-  - "CMB"
-  - "BKK"
-departure_dates:
-  - "20251227"
-  - "20251228"
-air_type: 0 # 0=one-way, 1=round-trip
-return_date: null
-passengers: 1
+# Search Parameters
+ORIGIN="TYO"
+DESTINATIONS="CMB,BKK"
+DEPARTURE_DATES="20251227,20251228"
+AIR_TYPE="0"
+RETURN_DATE=""
+PASSENGERS="1"
 ```
+- `DESTINATIONS` and `DEPARTURE_DATES` are comma-separated strings.
 
 ## 4. URL Format Analysis
 
@@ -133,7 +122,7 @@ After parsing the HTML, the flight data is converted into a structured JSON form
     "transfer_type": "self-transfer"
   },
   "airlines": [
-    "チェジュ航空",
+    "济州航空",
     "Unknown Airline"
   ],
   "baggage": {
@@ -154,7 +143,7 @@ After parsing the HTML, the flight data is converted into a structured JSON form
   "legs": [
     {
       "flight_number": "7C1105",
-      "airline": "チェジュ航空",
+      "airline": "济州航空",
       "departure": { "airport": "NRT", "datetime": "2025-12-27T19:50" },
       "arrival": { "airport": "ICN", "datetime": "2025-12-27T22:40" },
       "duration": "2h 50m"
@@ -171,7 +160,7 @@ After parsing the HTML, the flight data is converted into a structured JSON form
 ### 6.1 Agent State Schema
 ```python
 class AgentState(TypedDict):
-    search_configs: list[dict]   # List of search jobs from config.yaml
+    search_configs: list[dict]   # List of search jobs from config
     current_search: dict         # The current search being processed
     raw_html: str                # Scraped HTML content
     parsed_flights: list[dict]   # Extracted flight data as JSON
@@ -185,12 +174,12 @@ class AgentState(TypedDict):
 ### 6.2 Graph Nodes
 
 #### Node 1: Config Loader
-**Purpose**: Load search jobs from `config.yaml`.
+**Purpose**: Load search jobs from the `.env` file.
 **Input**: None.
 **Output**: `search_configs` (a list of individual search queries).
 **Logic**:
-- Read and parse `config.yaml`.
-- Read `.env` for secrets.
+- Load environment variables from `.env`.
+- Parse comma-separated strings for `DESTINATIONS` and `DEPARTURE_DATES`.
 - For each combination of destination and departure date, create a search configuration object.
 - Validate airport codes and date formats.
 
@@ -249,7 +238,7 @@ class AgentState(TypedDict):
 - Send message via Telegram Bot API.
 
 ### 6.3 Graph Edges (Flow)
-The agent will loop through each search job defined in `config.yaml`.
+The agent will loop through each search job defined in the `.env` file.
 ```
 START → Config Loader
   ↓
@@ -267,7 +256,7 @@ Error Handler → Telegram Sender (error message)
 ### 7.1 System Prompt Template
 ```
 You are a professional travel assistant analyzing flight search results provided in JSON format.
-Your task is to summarize the TOP 3 CHEAPEST flights in a clear, concise format in Japanese.
+Your task is to summarize the TOP 3 CHEAPEST flights in a clear, concise format in Chinese.
 
 INPUT DATA:
 ```json
@@ -286,20 +275,20 @@ REQUIREMENTS:
    - The primary vendor/provider.
 3. Add a brief note if there are significant differences in layover times or transfer types (e.g., self-transfer).
 4. Use emojis for visual clarity (✈️ 💰 ⏱️ 🎒).
-5. Keep the total response under 500 words.
+5. Keep total response under 500 words.
 6. Write in a friendly but professional tone.
-7. **Output must be in Japanese.**
+7. **Output must be in Chinese.**
 
 EXAMPLE FORMAT:
-[Emoji] Flight 1: [Airline] - ¥[Price]
-📅 [Date] [Time] → [Date] [Time]
-⏱️ [Duration] | 🔄 [Transfers]
-🎒 [Baggage]
-🏢 Provider: [Name]
+[表情] 航班 1: [航空公司] - ¥[价格]
+📅 [日期] [时间] → [日期] [时间]
+⏱️ [总时长] | 🔄 [中转次数]
+🎒 [行李]
+🏢 销售商: [名称]
 
 [Repeat for 3 flights]
 
-💡 Quick Note: [Any important observations]
+💡 备注: [任何重要的注意事项]
 ```
 
 ### 7.2 Gemini API Configuration
@@ -318,7 +307,7 @@ gemini_config = {
 The bot's primary role is to trigger the agent and report results.
 ```
 /start - Welcome message and instructions.
-/run - Trigger a new flight search based on config.yaml.
+/run - Trigger a new flight search based on the .env configuration.
 /help - Show usage examples.
 /status - Check the status of the current run.
 ```
@@ -327,7 +316,7 @@ The bot's primary role is to trigger the agent and report results.
 ```
 User sends: /run
 Bot replies: 🔍 Starting flight search based on your configuration... I will notify you when the results are ready.
-[After processing all searches from config.yaml]:
+[After processing all searches from .env]:
 Bot sends: [Formatted summary for first search]
 Bot sends: [Formatted summary for second search]
 ...
@@ -409,7 +398,6 @@ google-generativeai>=0.3.0
 # Utilities
 pydantic>=2.5.0
 python-dotenv>=1.0.0
-PyYAML>=6.0 # For parsing config.yaml
 
 # Logging
 structlog>=23.2.0
