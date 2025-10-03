@@ -24,10 +24,10 @@ An autonomous AI agent that searches for air tickets on https://www.tour.ne.jp, 
                    │
 ┌──────────────────▼──────────────────────────────────────┐
 │                  LangGraph Agent                         │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌──────────────────┐  │
-│  │  Config    │→ │  Scraper   │→ │ HTML Parser│→ │    Analyzer      │  │
-│  │  Loader    │  │   Node     │  │ (to JSON)  │  │   (Gemini)       │  │
-│  └────────────┘  └────────────┘  └────────────┘  └──────────────────┘  │
+│  ┌──────────┐  ┌──────────┐  ┌─────────────┐  ┌──────────┐  ┌──────────┐ │
+│  │  Config  │→ │  Scraper │→ │ HTML Parser │→ │  Result  │→ │ Analyzer │ │
+│  │  Loader  │  │   Node   │  │  (to JSON)  │  │  Logger  │  │ (Gemini) │ │
+│  └──────────┘  └──────────┘  └─────────────┘  └──────────┘  └──────────┘ │
 └─────────────────────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────┐
@@ -167,6 +167,7 @@ class AgentState(TypedDict):
     analysis_prompt: str         # Generated prompt for Gemini
     summary: str                 # AI-generated summary
     telegram_message: str        # Formatted message for Telegram
+    debug_file_path: Optional[str] # Path to the saved debug file
     error: Optional[str]         # Error tracking
     metadata: dict               # Execution metadata
 ```
@@ -187,55 +188,42 @@ class AgentState(TypedDict):
 **Purpose**: Build search URL for the current search job.
 **Input**: `current_search`.
 **Output**: Formatted URL string.
-**Logic**:
-- Construct URL with proper encoding.
-- Handle one-way vs round-trip logic.
 
 #### Node 3: Web Scraper
 **Purpose**: Fetch flight data from the generated URL.
 **Input**: Search URL.
 **Output**: `raw_html`.
-**Logic**:
-- Initialize headless Chrome.
-- Navigate and wait for network idle.
-- Extract page source.
-- Handle timeouts and errors with retry logic (max 3 attempts).
 
 #### Node 4: HTML Parser
 **Purpose**: Extract structured JSON data from HTML.
 **Input**: `raw_html`.
 **Output**: `parsed_flights`.
-**Logic**:
-- Use BeautifulSoup4 and lxml to parse all `.flight-area` elements.
-- For each flight, extract details and structure them into the JSON format defined in Section 5.3.
-- Sort flights by price (ascending).
 
-#### Node 5: Flight Analyzer
+#### Node 5: Result Logger
+**Purpose**: Save the parsed flight data to a markdown file for debugging.
+**Input**: `parsed_flights`, `current_search`.
+**Output**: `debug_file_path`.
+**Logic**:
+- Create the `data/` directory if it doesn't exist.
+- Generate a filename from the search parameters and timestamp (e.g., `data/TYO-CMB-20251227-1664803200.md`).
+- Convert the `parsed_flights` list to a pretty-printed JSON string.
+- Wrap the JSON string in a markdown code block.
+- Write the content to the file and store the path in `debug_file_path`.
+
+#### Node 6: Flight Analyzer
 **Purpose**: Generate an AI-powered summary of the best flights.
 **Input**: `parsed_flights`.
 **Output**: `summary`.
-**Logic**:
-- Select top 3 cheapest flights.
-- Convert the flight data to a JSON string.
-- Generate a structured prompt for Gemini, injecting the JSON data.
-- Call Gemini Flash API.
-- Parse and validate the response.
 
-#### Node 6: Message Formatter
+#### Node 7: Message Formatter
 **Purpose**: Format the summary for Telegram.
 **Input**: `summary`.
 **Output**: `telegram_message`.
-**Logic**:
-- Apply Telegram markdown formatting.
-- Add emojis for readability.
-- Include metadata (search params, timestamp).
 
-#### Node 7: Telegram Sender
+#### Node 8: Telegram Sender
 **Purpose**: Deliver results to the user.
 **Input**: `telegram_message`.
 **Output**: Delivery confirmation.
-**Logic**:
-- Send message via Telegram Bot API.
 
 ### 6.3 Graph Edges (Flow)
 The agent will loop through each search job defined in the `.env` file.
@@ -244,7 +232,7 @@ START → Config Loader
   ↓
 (For each search in search_configs)
   ↓
-URL Constructor → Web Scraper → HTML Parser → Flight Analyzer → Message Formatter → Telegram Sender
+URL Constructor → Web Scraper → HTML Parser → Result Logger → Flight Analyzer → Message Formatter → Telegram Sender
   ↓ (on any error)
 Error Handler → Telegram Sender (error message)
   ↓
