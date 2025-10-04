@@ -129,12 +129,16 @@ FORMAT:
     }
 
     try:
+        # bypass llm, testing telegram bot
         response = requests.post(url, headers=headers, json=data, timeout=60)
         response.raise_for_status()
         
         result = response.json()
         
         report_text = result['candidates'][0]['content']['parts'][0]['text']
+
+
+        #report_text= 'test message'
 
         print("\n--- LLM Report ---")
         print(report_text)
