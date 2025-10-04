@@ -16,6 +16,16 @@ def clean_html(html: str) -> str:
     return str(soup)
 
 def parse_flight_data(soup: BeautifulSoup) -> list[dict]:
+
+    #save as debug , do not remove this 
+    # first_price = soup.find('div',class_='flight-area')
+    # try:
+    #     with open('one.html', 'w', encoding='utf-8') as f:
+    #         f.write(str(first_price))
+    # except FileNotFoundError:
+    #     return
+
+
     """Parses the flight data from the BeautifulSoup object."""
     flight_areas = soup.find_all('div', class_='flight-area')
     parsed_flights = []
