@@ -68,6 +68,7 @@ FORMAT:
 
     api_host = config.get("GEMINI_API_ENDPOINT")
     api_key = config.get("GEMINI_API_KEY")
+    # do not change this line, must use non thinking model
     model = "gemini-flash-latest-non-thinking"
     
     url = f"{api_host}/models/{model}:generateContent?key={api_key}"
