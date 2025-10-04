@@ -11,6 +11,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from parser import parse_flight_data, clean_html
+from telegram_bot import send_telegram_message
 
 def load_config():
     """Loads configuration from the .env file."""
@@ -133,9 +134,13 @@ FORMAT:
         
         result = response.json()
         
+        report_text = result['candidates'][0]['content']['parts'][0]['text']
+
         print("\n--- LLM Report ---")
-        print(result['candidates'][0]['content']['parts'][0]['text'])
+        print(report_text)
         print("--- End of Report ---\n")
+
+        send_telegram_message(report_text, config)
 
     except requests.exceptions.RequestException as e:
         print(f"Error generating report: {e}")
