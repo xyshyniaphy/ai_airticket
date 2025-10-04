@@ -46,6 +46,8 @@ def generate_report(flights, config, airport_data):
 
     airport_names_map = {code: airport_data.get(code, code) for code in all_airport_codes}
     airport_names_str = ", ".join([f"{code} ({name})" for code, name in airport_names_map.items()])
+    
+    today_date = datetime.now().strftime('%Y年 %m月 %d日')
 
 
     prompt_template = """You are a data formatter. Your only task is to convert the given JSON data into a specific format.
@@ -62,7 +64,7 @@ DATA:
 ```
 
 FORMAT:
-今天是
+今天是 {today_date}
 从 [ {origin_airport_name} ] 到 [ {destination_airport_name} ]  的最便宜的机票如下
 ✈️ **航班 1:** [价格]
 - **销售商:** [销售商名称]
@@ -97,6 +99,7 @@ FORMAT:
 💡 **备注:** [任何重要的注意事项, e.g. self-transfer]
 """
     prompt = prompt_template.format(
+        today_date=today_date,
         json_flights_data=json.dumps(top_3_flights, indent=2, ensure_ascii=False),
         origin_airport_code=origin_airport_code,
         destination_airport_code=destination_airport_code,
