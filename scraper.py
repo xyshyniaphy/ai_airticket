@@ -10,51 +10,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
-
-def parse_flight_data(soup: BeautifulSoup) -> list[dict]:
-    """Parses the flight data from the BeautifulSoup object."""
-    flight_areas = soup.find_all('div', class_='flight-area')
-    parsed_flights = []
-
-    for flight in flight_areas:
-        # Basic info
-        provider_name_tag = flight.find('div', class_='flight-summary-hdg')
-        provider_name = provider_name_tag.text.strip() if provider_name_tag else 'N/A'
-
-        price_tag = flight.find('span', class_='price')
-        price = price_tag.text.strip() if price_tag else 'N/A'
-
-        # Schedule
-        sch_header_tag = flight.find('div', class_='sch-header')
-        trip_type = sch_header_tag.find('span').text.strip() if sch_header_tag else 'N/A'
-
-        going_area = flight.find('div', class_='going-area')
-        dpt_time = going_area.find('div', class_='dpt-time').text.strip()
-        dpt_airport = going_area.find('div', class_='dpt-airport').text.strip()
-        arr_time = going_area.find('div', class_='arr-time').text.strip()
-        arr_airport = going_area.find('div', class_='arr-airport').text.strip()
-
-        flt_term_tag = flight.find('div', class_='flt-term')
-        duration = flt_term_tag.find('span', class_='hour').text.strip()
-        transfers = flt_term_tag.find('span', class_='transfer').text.strip()
-
-
-        flight_data = {
-            "provider_name": provider_name,
-            "price": price,
-            "schedule": {
-                "trip_type": trip_type,
-                "departure_time": dpt_time,
-                "departure_airport": dpt_airport,
-                "arrival_time": arr_time,
-                "arrival_airport": arr_airport,
-                "duration": duration,
-                "transfers": transfers,
-            },
-        }
-        parsed_flights.append(flight_data)
-
-    return parsed_flights
+from parser import parse_flight_data
 
 
 def main():
@@ -112,6 +68,9 @@ def main():
 
                 except Exception as e:
                     print(f"An error occurred while scraping {url}: {e}")
+                    with open('debug.html', 'w', encoding='utf-8') as f:
+                        f.write(driver.page_source)
+                    print("Saved page source to debug.html")
 
 
 if __name__ == "__main__":
