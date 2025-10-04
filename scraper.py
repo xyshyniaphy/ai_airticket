@@ -213,10 +213,10 @@ def scrape_flights(config):
                 driver.get(url)
 
                 try:
-                    WebDriverWait(driver, 20).until(
+                    WebDriverWait(driver, 120).until(
                         EC.presence_of_element_located((By.CLASS_NAME, "flight-area"))
                     )
-                    time.sleep(5)
+                    time.sleep(25)
 
                     html_content = driver.page_source
                     cleaned_html = clean_html(html_content)
