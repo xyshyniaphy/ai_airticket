@@ -47,6 +47,7 @@ A `.env.sample` file is provided as a template. To run the agent, copy it to `.e
 # Secrets
 TELEGRAM_BOT_TOKEN="YOUR_TELEGRAM_BOT_TOKEN"
 GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
+GEMINI_API_ENDPOINT="YOUR_GEMINI_API_ENDPOINT"
 
 # Search Parameters
 ORIGIN="TYO"
@@ -57,6 +58,7 @@ RETURN_DATE=""
 PASSENGERS="1"
 ```
 - `DESTINATIONS` and `DEPARTURE_DATES` are comma-separated strings.
+- `GEMINI_API_ENDPOINT` is an optional custom endpoint for the Gemini API.
 
 ## 4. URL Format Analysis
 
@@ -282,7 +284,7 @@ EXAMPLE FORMAT:
 ### 7.2 Gemini API Configuration
 ```python
 gemini_config = {
-    "model": "gemini-flash", # Use a stable model name
+    "model": "gemini-flash-latest", # Use a stable model name
     "temperature": 0.3,
     "top_p": 0.8,
     "max_output_tokens": 1024,
