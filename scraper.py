@@ -34,10 +34,11 @@ def generate_report(flights, config, airport_data):
 
     top_3_flights = flights[:3]
 
-    origin_airport_code = top_3_flights[0]['schedule']['departure_airport']
-    destination_airport_code = top_3_flights[0]['schedule']['arrival_airport']
+    origin_airport_code = top_3_flights[0]['departure']['airport']
+    destination_airport_code = top_3_flights[0]['arrival']['airport']
     origin_airport_name = airport_data.get(origin_airport_code, origin_airport_code)
     destination_airport_name = airport_data.get(destination_airport_code, destination_airport_code)
+
 
     prompt_template = """You are a data formatter. Your only task is to convert the given JSON data into a specific format.
 Your response must be in Chinese.
@@ -53,21 +54,30 @@ DATA:
 FORMAT:
 ✈️ **航班 1:** [价格]
 - **销售商:** [销售商名称]
-- **行程:** {origin_airport_name} [出发时间] → {destination_airport_name} [到达时间]
+- **航司:** [航空公司]
+- **行程:** {origin_airport_name} [出发日期] [出发时间] → {destination_airport_name} [到达日期] [到达时间]
 - **时长:** [总时长]
-- **中转:** [中转次数]
+- **中转:** [中转信息]
+- **机型:** [飞机型号]
+- **行李:** [行李信息]
 
 ✈️ **航班 2:** [价格]
 - **销售商:** [销售商名称]
-- **行程:** {origin_airport_name} [出发时间] → {destination_airport_name} [到达时间]
+- **航司:** [航空公司]
+- **行程:** {origin_airport_name} [出发日期] [出发时间] → {destination_airport_name} [到达日期] [到达时间]
 - **时长:** [总时长]
-- **中转:** [中转次数]
+- **中转:** [中转信息]
+- **机型:** [飞机型号]
+- **行李:** [行李信息]
 
 ✈️ **航班 3:** [价格]
 - **销售商:** [销售商名称]
-- **行程:** {origin_airport_name} [出发时间] → {destination_airport_name} [到达时间]
+- **航司:** [航空公司]
+- **行程:** {origin_airport_name} [出发日期] [出发时间] → {destination_airport_name} [到达日期] [到达时间]
 - **时长:** [总时长]
-- **中转:** [中转次数]
+- **中转:** [中转信息]
+- **机型:** [飞机型号]
+- **行李:** [行李信息]
 
 💡 **备注:** [任何重要的注意事项, e.g. self-transfer]
 """
@@ -78,6 +88,8 @@ FORMAT:
         origin_airport_name=origin_airport_name,
         destination_airport_name=destination_airport_name
     )
+    
+    print(prompt)
 
     api_host = config.get("GEMINI_API_ENDPOINT")
     api_key = config.get("GEMINI_API_KEY")
