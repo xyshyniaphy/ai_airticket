@@ -8,6 +8,4 @@ IMAGE_NAME="ai_airticket_scraper"
 echo "Building Docker image..."
 docker build -t $IMAGE_NAME .
 
-# Run the Docker container
-echo "Running Docker container..."
-docker run --rm --env-file .env $IMAGE_NAME
+echo "Docker image built: ${IMAGE_NAME}"
