@@ -104,55 +104,33 @@ After parsing the HTML, the flight data is converted into a structured JSON form
 **Example JSON for a single flight:**
 ```json
 {
-  "flight_id": "some_unique_identifier_from_html",
   "provider_name": "Gotogate",
-  "price": {
-    "total": 86394,
-    "currency": "JPY"
+  "price": "86,344円",
+  "trip_type": "片道",
+  "airline": "チェジュ航空",
+  "departure": {
+    "date": "12/27(土)",
+    "time": "15:30",
+    "airport": "NRT"
   },
-  "schedule": {
-    "departure": {
-      "airport": "NRT",
-      "datetime": "2025-12-27T19:50:00"
-    },
-    "arrival": {
-      "airport": "CMB",
-      "datetime": "2025-12-28T23:40:00"
-    },
-    "duration_total": "31h 20m",
-    "transfers_count": 4,
-    "transfer_type": "self-transfer"
+  "arrival": {
+    "date": "12/28(日)",
+    "time": "23:40",
+    "airport": "CMB"
   },
-  "airlines": [
-    "济州航空",
-    "Unknown Airline"
-  ],
-  "baggage": {
-    "carry_on": true,
-    "checked": true,
-    "details": "Carry-on + Checked bag included"
+  "duration": "35時間40分",
+  "transfers": {
+    "count_str": "乗継3回/自己",
+    "airports": [
+      "ICN",
+      "NKG",
+      "KMG"
+    ]
   },
-  "vendors": [
-    {
-      "name": "Gotogate",
-      "price": 86394
-    },
-    {
-      "name": "MyTrip",
-      "price": 87100
-    }
-  ],
-  "legs": [
-    {
-      "flight_number": "7C1105",
-      "airline": "济州航空",
-      "departure": { "airport": "NRT", "datetime": "2025-12-27T19:50" },
-      "arrival": { "airport": "ICN", "datetime": "2025-12-27T22:40" },
-      "duration": "2h 50m"
-    },
-    {
-      "layover_duration": "3h 10m"
-    }
+  "plane_model": "エアバス A319",
+  "baggage": [
+    "機内手荷物込",
+    "預け手荷物込"
   ]
 }
 ```
@@ -257,12 +235,13 @@ REQUIREMENTS:
 1. List exactly 3 flights (cheapest first).
 2. For each flight include:
    - Total price (highlight the cheapest).
-   - Airline(s).
+   - Airline.
    - Departure & arrival times (with dates).
    - Total duration.
-   - Number of transfers.
+   - Number of transfers and transfer airports.
    - Baggage allowance.
    - The primary vendor/provider.
+   - Plane model.
 3. Add a brief note if there are significant differences in layover times or transfer types (e.g., self-transfer).
 4. Use emojis for visual clarity (✈️ 💰 ⏱️ 🎒).
 5. Keep total response under 500 words.
@@ -272,7 +251,8 @@ REQUIREMENTS:
 EXAMPLE FORMAT:
 [表情] 航班 1: [航空公司] - ¥[价格]
 📅 [日期] [时间] → [日期] [时间]
-⏱️ [总时长] | 🔄 [中转次数]
+⏱️ [总时长] | 🔄 [中转次数] at [中转机场]
+✈️ [机型]
 🎒 [行李]
 🏢 销售商: [名称]
 
