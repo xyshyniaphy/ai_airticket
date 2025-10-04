@@ -26,7 +26,7 @@ def load_config():
         print("Warning: .env file not found.")
     return config
 
-def generate_report(flights, config):
+def generate_report(flights, config, airport_data):
     """Generates a report for the top 3 flights using an LLM."""
     if not flights:
         print("No flights to generate a report for.")
@@ -34,9 +34,16 @@ def generate_report(flights, config):
 
     top_3_flights = flights[:3]
 
-    prompt_template = """You are a data formatting machine. You do not have a personality. You do not think. You only convert data from one format to another.
-Your task is to convert the given JSON data into the specified format.
-You must not output any text other than the formatted data.
+    origin_airport_code = top_3_flights[0]['schedule']['departure_airport']
+    destination_airport_code = top_3_flights[0]['schedule']['arrival_airport']
+    origin_airport_name = airport_data.get(origin_airport_code, origin_airport_code)
+    destination_airport_name = airport_data.get(destination_airport_code, destination_airport_code)
+
+    prompt_template = """You are a data formatter. Your only task is to convert the given JSON data into a specific format.
+Your response must be in Chinese.
+You MUST NOT output any text other than the formatted data.
+
+The user is searching for flights from {origin_airport_name} ({origin_airport_code}) to {destination_airport_name} ({destination_airport_code}).
 
 DATA:
 ```json
@@ -46,25 +53,31 @@ DATA:
 FORMAT:
 ✈️ **航班 1:** [价格]
 - **销售商:** [销售商名称]
-- **行程:** [出发机场] [出发时间] → [到达机场] [到达时间]
+- **行程:** {origin_airport_code} [出发时间] → {destination_airport_code} [到达时间]
 - **时长:** [总时长]
 - **中转:** [中转次数]
 
 ✈️ **航班 2:** [价格]
 - **销售商:** [销售商名称]
-- **行程:** [出发机场] [出发时间] → [到达机场] [到达时间]
+- **行程:** {origin_airport_code} [出发时间] → {destination_airport_code} [到达时间]
 - **时长:** [总时长]
 - **中转:** [中转次数]
 
 ✈️ **航班 3:** [价格]
 - **销售商:** [销售商名称]
-- **行程:** [出发机场] [出发时间] → [到达机场] [到达时间]
+- **行程:** {origin_airport_code} [出发时间] → {destination_airport_code} [到达时间]
 - **时长:** [总时长]
 - **中转:** [中转次数]
 
 💡 **备注:** [任何重要的注意事项, e.g. self-transfer]
 """
-    prompt = prompt_template.format(json_flights_data=json.dumps(top_3_flights, indent=2, ensure_ascii=False))
+    prompt = prompt_template.format(
+        json_flights_data=json.dumps(top_3_flights, indent=2, ensure_ascii=False),
+        origin_airport_code=origin_airport_code,
+        destination_airport_code=destination_airport_code,
+        origin_airport_name=origin_airport_name,
+        destination_airport_name=destination_airport_name
+    )
 
     api_host = config.get("GEMINI_API_ENDPOINT")
     api_key = config.get("GEMINI_API_KEY")
@@ -182,6 +195,24 @@ def scrape_flights(config):
                     print(f"An error occurred while scraping {url}: {e}")
     return all_flights
 
+def load_airport_data(file_path='iata-icao.csv'):
+    """Loads airport data from the CSV file."""
+    airport_data = {}
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            # Skip header
+            next(f)
+            for line in f:
+                parts = line.strip().split(',')
+                if len(parts) >= 5:
+                    iata = parts[2].strip().strip('\"')
+                    airport_name = parts[4].strip().strip('\"')
+                    if iata:
+                        airport_data[iata] = airport_name
+    except FileNotFoundError:
+        print("Warning: iata-icao.csv file not found.")
+    return airport_data
+
 def main():
     """Main function to process flight data."""
     config = load_config()
@@ -194,7 +225,8 @@ def main():
         flights = scrape_flights(config)
 
     if flights:
-        generate_report(flights, config)
+        airport_data = load_airport_data()
+        generate_report(flights, config, airport_data)
 
 if __name__ == "__main__":
     main()
