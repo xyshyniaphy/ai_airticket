@@ -16,16 +16,6 @@ def clean_html(html: str) -> str:
     return str(soup)
 
 def parse_flight_data(soup: BeautifulSoup) -> list[dict]:
-
-    #save as debug , do not remove this 
-    # first_price = soup.find('div',class_='flight-area')
-    # try:
-    #     with open('one.html', 'w', encoding='utf-8') as f:
-    #         f.write(str(first_price))
-    # except FileNotFoundError:
-    #     return
-
-
     """Parses the flight data from the BeautifulSoup object."""
     flight_areas = soup.find_all('div', class_='flight-area')
     parsed_flights = []
@@ -40,24 +30,30 @@ def parse_flight_data(soup: BeautifulSoup) -> list[dict]:
         trip_type_tag = flight.find('div', class_='sch-header-sup')
         trip_type = trip_type_tag.text.strip() if trip_type_tag else 'N/A'
 
-        dpt_time, dpt_airport, arr_time, arr_airport = 'N/A', 'N/A', 'N/A', 'N/A'
+        airline_name_tag = flight.find('span', class_='sch-airline-name-sup')
+        airline_name = airline_name_tag.text.strip() if airline_name_tag else 'N/A'
+
+        dpt_date, dpt_time, dpt_airport = 'N/A', 'N/A', 'N/A'
         going_area = flight.find('div', class_='going-area')
         if going_area:
+            dpt_date_tag = going_area.find('span', class_='sch-date')
+            dpt_date = dpt_date_tag.text.strip() if dpt_date_tag else 'N/A'
             dpt_time_tag = going_area.find('span', class_='sch-time')
             dpt_time = dpt_time_tag.text.strip() if dpt_time_tag else 'N/A'
-
             dpt_airport_tag = going_area.find('span', class_='city-airport')
             dpt_airport = dpt_airport_tag.text.strip() if dpt_airport_tag else 'N/A'
 
+        arr_date, arr_time, arr_airport = 'N/A', 'N/A', 'N/A'
         return_area = flight.find('div', class_='return-area')
         if return_area:
+            arr_date_tag = return_area.find('span', class_='sch-date')
+            arr_date = arr_date_tag.text.strip() if arr_date_tag else 'N/A'
             arr_time_tag = return_area.find('span', class_='sch-time')
             arr_time = arr_time_tag.text.strip() if arr_time_tag else 'N/A'
-
             arr_airport_tag = return_area.find('span', class_='city-airport2')
             arr_airport = arr_airport_tag.text.strip() if arr_airport_tag else 'N/A'
 
-        duration, transfers = 'N/A', 'N/A'
+        duration, transfers_str = 'N/A', 'N/A'
         flt_term = flight.find('div', class_='flt-term')
         if flt_term:
             duration_tag = flt_term.find('div', class_='flt-term-top')
@@ -65,20 +61,46 @@ def parse_flight_data(soup: BeautifulSoup) -> list[dict]:
                 duration = duration_tag.div.text.strip().split('\n')[0]
 
             transfer_tag = flt_term.find('span', class_='flt-term-transit')
-            transfers = transfer_tag.text.strip() if transfer_tag else 'N/A'
+            transfers_str = transfer_tag.text.strip() if transfer_tag else 'N/A'
+
+        plane_model_tag = flight.find('li', class_='amenity-equipment')
+        plane_model = plane_model_tag.find_all('span')[2].text.strip() if plane_model_tag and len(plane_model_tag.find_all('span')) > 2 else 'N/A'
+
+        baggage_info = []
+        baggage_list = flight.find('ul', class_='flight-summary-info-list')
+        if baggage_list:
+            for item in baggage_list.find_all('li'):
+                baggage_info.append(item.text.strip())
+
+        transfer_airports = []
+        transfer_tags = flight.find_all('dd', class_='airport transfer')
+        for tag in transfer_tags:
+            airport_name_tag = tag.find('a', class_='airport')
+            if airport_name_tag:
+                transfer_airports.append(airport_name_tag.text.strip())
 
         flight_data = {
             "provider_name": provider_name,
             "price": price,
-            "schedule": {
-                "trip_type": trip_type,
-                "departure_time": dpt_time,
-                "departure_airport": dpt_airport,
-                "arrival_time": arr_time,
-                "arrival_airport": arr_airport,
-                "duration": duration,
-                "transfers": transfers,
+            "trip_type": trip_type,
+            "airline": airline_name,
+            "departure": {
+                "date": dpt_date,
+                "time": dpt_time,
+                "airport": dpt_airport
             },
+            "arrival": {
+                "date": arr_date,
+                "time": arr_time,
+                "airport": arr_airport
+            },
+            "duration": duration,
+            "transfers": {
+                "count_str": transfers_str,
+                "airports": transfer_airports
+            },
+            "plane_model": plane_model,
+            "baggage": baggage_info
         }
         parsed_flights.append(flight_data)
 
