@@ -10,7 +10,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
-from parser import parse_flight_data
+from parser import parse_flight_data, clean_html
 
 
 def main():
@@ -46,7 +46,14 @@ def main():
                     # Additional wait for dynamic content
                     time.sleep(5)
 
-                    soup = BeautifulSoup(driver.page_source, 'lxml')
+                    html_content = driver.page_source
+                    cleaned_html = clean_html(html_content)
+
+                    with open('debug.html', 'w', encoding='utf-8') as f:
+                        f.write(cleaned_html)
+                    print("Saved cleaned HTML to debug.html")
+
+                    soup = BeautifulSoup(cleaned_html, 'lxml')
                     flights = parse_flight_data(soup)
 
                     if not flights:
@@ -68,9 +75,6 @@ def main():
 
                 except Exception as e:
                     print(f"An error occurred while scraping {url}: {e}")
-                    with open('debug.html', 'w', encoding='utf-8') as f:
-                        f.write(driver.page_source)
-                    print("Saved page source to debug.html")
 
 
 if __name__ == "__main__":

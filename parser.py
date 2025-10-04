@@ -1,4 +1,16 @@
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
+
+def clean_html(html: str) -> str:
+    """Removes script and style tags, and comments from the HTML."""
+    soup = BeautifulSoup(html, "lxml")
+    for tag in soup(["script", "style", "meta", "noscript"]):
+        tag.decompose()
+    
+    for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+        comment.extract()
+
+    return str(soup)
+
 
 def parse_flight_data(soup: BeautifulSoup) -> list[dict]:
     """Parses the flight data from the BeautifulSoup object."""
