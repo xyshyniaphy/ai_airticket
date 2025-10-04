@@ -1,4 +1,6 @@
 import os
+import os
+from dotenv import load_dotenv
 import json
 import time
 import glob
@@ -14,17 +16,27 @@ from parser import parse_flight_data, clean_html
 from telegram_bot import send_telegram_message
 
 def load_config():
-    """Loads configuration from the .env file."""
+    """
+    Loads configuration from a .env file (for local development)
+    and then from environment variables.
+    """
+    # Load .env file if it exists
+    load_dotenv()
+
     config = {}
-    try:
-        with open('.env', 'r') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    config[key.strip()] = value.strip().strip('"\'')
-    except FileNotFoundError:
-        print("Warning: .env file not found.")
+    config['GEMINI_API_ENDPOINT'] = os.environ.get('GEMINI_API_ENDPOINT')
+    config['GEMINI_API_KEY'] = os.environ.get('GEMINI_API_KEY')
+    config['ORIGIN'] = os.environ.get('ORIGIN')
+    config['DESTINATIONS'] = os.environ.get('DESTINATIONS')
+    config['DEPARTURE_DATES'] = os.environ.get('DEPARTURE_DATES')
+    config['AIR_TYPE'] = os.environ.get('AIR_TYPE')
+    config['USE_CACHE'] = os.environ.get('USE_CACHE')
+    config['TELEGRAM_BOT_TOKEN'] = os.environ.get('TELEGRAM_BOT_TOKEN')
+    config['TELEGRAM_CHAT_ID'] = os.environ.get('TELEGRAM_CHAT_ID')
+    
+    if not all([config['ORIGIN'], config['DESTINATIONS'], config['DEPARTURE_DATES']]):
+        print("Error: Essential environment variables (ORIGIN, DESTINATIONS, DEPARTURE_DATES) are not set.")
+        
     return config
 
 def generate_report(flights, config, airport_data):
