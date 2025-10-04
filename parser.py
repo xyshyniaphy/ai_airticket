@@ -64,7 +64,11 @@ def parse_flight_data(soup: BeautifulSoup) -> list[dict]:
             transfers_str = transfer_tag.text.strip() if transfer_tag else 'N/A'
 
         plane_model_tag = flight.find('li', class_='amenity-equipment')
-        plane_model = plane_model_tag.find_all('span')[2].text.strip() if plane_model_tag and len(plane_model_tag.find_all('span')) > 2 else 'N/A'
+        plane_model = plane_model_tag.text.strip() if plane_model_tag else 'N/A'
+
+        flight_code_tags = flight.find_all('span', class_='sch-dtl-desc-flt-code')
+        flight_codes = [tag.text.strip() for tag in flight_code_tags]
+        flight_code = ', '.join(flight_codes) if flight_codes else 'N/A'
 
         baggage_info = []
         baggage_list = flight.find('ul', class_='flight-summary-info-list')
@@ -84,6 +88,7 @@ def parse_flight_data(soup: BeautifulSoup) -> list[dict]:
             "price": price,
             "trip_type": trip_type,
             "airline": airline_name,
+            "flight_code": flight_code,
             "departure": {
                 "date": dpt_date,
                 "time": dpt_time,

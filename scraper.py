@@ -39,13 +39,23 @@ def generate_report(flights, config, airport_data):
     origin_airport_name = airport_data.get(origin_airport_code, origin_airport_code)
     destination_airport_name = airport_data.get(destination_airport_code, destination_airport_code)
 
+    all_airport_codes = {origin_airport_code, destination_airport_code}
+    for flight in top_3_flights:
+        for airport_code in flight['transfers']['airports']:
+            all_airport_codes.add(airport_code)
+
+    airport_names_map = {code: airport_data.get(code, code) for code in all_airport_codes}
+    airport_names_str = ", ".join([f"{code} ({name})" for code, name in airport_names_map.items()])
+
 
     prompt_template = """You are a data formatter. Your only task is to convert the given JSON data into a specific format.
 Your response must be in Chinese.
 You MUST NOT output any text other than the formatted data.
 
 The user is searching for flights from {origin_airport_name} ({origin_airport_code}) to {destination_airport_name} ({destination_airport_code}).
+Here is a list of airport codes and their names: {airport_names}. Please use these names in your response.
 you will translate the airport name into chinese
+
 DATA:
 ```json
 {json_flights_data}
@@ -86,7 +96,8 @@ FORMAT:
         origin_airport_code=origin_airport_code,
         destination_airport_code=destination_airport_code,
         origin_airport_name=origin_airport_name,
-        destination_airport_name=destination_airport_name
+        destination_airport_name=destination_airport_name,
+        airport_names=airport_names_str
     )
     
     print(prompt)
