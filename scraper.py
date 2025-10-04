@@ -44,7 +44,7 @@ Your response must be in Chinese.
 You MUST NOT output any text other than the formatted data.
 
 The user is searching for flights from {origin_airport_name} ({origin_airport_code}) to {destination_airport_name} ({destination_airport_code}).
-
+you will translate the airport name into chinese
 DATA:
 ```json
 {json_flights_data}
@@ -53,19 +53,19 @@ DATA:
 FORMAT:
 ✈️ **航班 1:** [价格]
 - **销售商:** [销售商名称]
-- **行程:** {origin_airport_code} [出发时间] → {destination_airport_code} [到达时间]
+- **行程:** {origin_airport_name} [出发时间] → {destination_airport_name} [到达时间]
 - **时长:** [总时长]
 - **中转:** [中转次数]
 
 ✈️ **航班 2:** [价格]
 - **销售商:** [销售商名称]
-- **行程:** {origin_airport_code} [出发时间] → {destination_airport_code} [到达时间]
+- **行程:** {origin_airport_name} [出发时间] → {destination_airport_name} [到达时间]
 - **时长:** [总时长]
 - **中转:** [中转次数]
 
 ✈️ **航班 3:** [价格]
 - **销售商:** [销售商名称]
-- **行程:** {origin_airport_code} [出发时间] → {destination_airport_code} [到达时间]
+- **行程:** {origin_airport_name} [出发时间] → {destination_airport_name} [到达时间]
 - **时长:** [总时长]
 - **中转:** [中转次数]
 
