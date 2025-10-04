@@ -3,10 +3,7 @@ import json
 import time
 import glob
 from datetime import datetime
-from dotenv import load_dotenv
-import google.generativeai as genai
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.schema import HumanMessage
+import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -15,7 +12,21 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from parser import parse_flight_data, clean_html
 
-def generate_report(flights):
+def load_config():
+    """Loads configuration from the .env file."""
+    config = {}
+    try:
+        with open('.env', 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    config[key.strip()] = value.strip().strip('"\'')
+    except FileNotFoundError:
+        print("Warning: .env file not found.")
+    return config
+
+def generate_report(flights, config):
     """Generates a report for the top 3 flights using an LLM."""
     if not flights:
         print("No flights to generate a report for.")
@@ -61,21 +72,37 @@ EXAMPLE FORMAT:
 """
     prompt = prompt_template.format(json_flights_data=json.dumps(top_3_flights, indent=2, ensure_ascii=False))
 
-    gemini_api_endpoint = os.getenv("GEMINI_API_ENDPOINT")
-    if gemini_api_endpoint:
-        genai.configure(client_options={"api_endpoint": gemini_api_endpoint})
+    api_host = config.get("GEMINI_API_ENDPOINT")
+    api_key = config.get("GEMINI_API_KEY")
+    model = "gemini-flash-latest"
+    
+    url = f"{api_host}/models/{model}:generateContent?key={api_key}"
 
-    llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", temperature=0.3, google_api_key=os.getenv("GEMINI_API_KEY"))
+    headers = {"Content-Type": "application/json"}
     
-    message = HumanMessage(content=prompt)
-    
+    data = {
+        "contents": [{
+            "parts": [{
+                "text": prompt
+            }]
+        }]
+    }
+
     try:
-        response = llm.invoke(message)
+        response = requests.post(url, headers=headers, json=data, timeout=60)
+        response.raise_for_status()
+        
+        result = response.json()
+        
         print("\n--- LLM Report ---")
-        print(response.content)
+        print(result['candidates'][0]['content']['parts'][0]['text'])
         print("--- End of Report ---\n")
-    except Exception as e:
+
+    except requests.exceptions.RequestException as e:
         print(f"Error generating report: {e}")
+    except (KeyError, IndexError) as e:
+        print(f"Error parsing LLM response: {e}")
+        print(f"Full response: {response.text}")
 
 def get_flights_from_cache():
     """Reads flight data from the latest cache file."""
@@ -102,14 +129,12 @@ def get_flights_from_cache():
         print(f"Could not parse json from file: {e}")
         return None
 
-def scrape_flights():
+def scrape_flights(config):
     """Scrapes flight data from the website."""
-    load_dotenv()
-
-    origin = os.getenv("ORIGIN")
-    destinations = os.getenv("DESTINATIONS", "").split(',')
-    departure_dates = os.getenv("DEPARTURE_DATES", "").split(',')
-    air_type = os.getenv("AIR_TYPE", "0")
+    origin = config.get("ORIGIN")
+    destinations = config.get("DESTINATIONS", "").split(',')
+    departure_dates = config.get("DEPARTURE_DATES", "").split(',')
+    air_type = config.get("AIR_TYPE", "0")
 
     chrome_options = Options()
     chrome_options.add_argument("--headless")
@@ -164,17 +189,17 @@ def scrape_flights():
 
 def main():
     """Main function to process flight data."""
-    load_dotenv()
-    use_cache = os.getenv("USE_CACHE", "false").lower() == "true"
+    config = load_config()
+    use_cache = config.get("USE_CACHE", "false").lower() == "true"
 
     flights = None
     if use_cache:
         flights = get_flights_from_cache()
     else:
-        flights = scrape_flights()
+        flights = scrape_flights(config)
 
     if flights:
-        generate_report(flights)
+        generate_report(flights, config)
 
 if __name__ == "__main__":
     main()
