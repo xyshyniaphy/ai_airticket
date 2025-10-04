@@ -1,0 +1,17 @@
+.git
+.gitignore
+__pycache__
+.venv
+*.pyc
+*.pyo
+*.pyd
+.env
+.env.sample
+data/
+works/
+debug.html
+first.html
+one.html
+session.md
+*.log
+.idx
