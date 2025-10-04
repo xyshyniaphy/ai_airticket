@@ -34,41 +34,35 @@ def generate_report(flights, config):
 
     top_3_flights = flights[:3]
 
-    prompt_template = """
-You are a professional travel assistant analyzing flight search results provided in JSON format.
-Your task is to summarize the TOP 3 CHEAPEST flights in a clear, concise format in Chinese.
+    prompt_template = """You are a data formatting machine. You do not have a personality. You do not think. You only convert data from one format to another.
+Your task is to convert the given JSON data into the specified format.
+You must not output any text other than the formatted data.
 
-INPUT DATA:
+DATA:
 ```json
 {json_flights_data}
 ```
 
-REQUIREMENTS:
-1. List exactly 3 flights (cheapest first).
-2. For each flight include:
-   - Total price (highlight the cheapest).
-   - Airline(s).
-   - Departure & arrival times (with dates).
-   - Total duration.
-   - Number of transfers.
-   - Baggage allowance.
-   - The primary vendor/provider.
-3. Add a brief note if there are significant differences in layover times or transfer types (e.g., self-transfer).
-4. Use emojis for visual clarity (✈️ 💰 ⏱️ 🎒).
-5. Keep total response under 500 words.
-6. Write in a friendly but professional tone.
-7. **Output must be in Chinese.**
+FORMAT:
+✈️ **航班 1:** [价格]
+- **销售商:** [销售商名称]
+- **行程:** [出发机场] [出发时间] → [到达机场] [到达时间]
+- **时长:** [总时长]
+- **中转:** [中转次数]
 
-EXAMPLE FORMAT:
-[表情] 航班 1: [航空公司] - ¥[价格]
-📅 [日期] [时间] → [日期] [时间]
-⏱️ [总时长] | 🔄 [中转次数]
-🎒 [行李]
-🏢 销售商: [名称]
+✈️ **航班 2:** [价格]
+- **销售商:** [销售商名称]
+- **行程:** [出发机场] [出发时间] → [到达机场] [到达时间]
+- **时长:** [总时长]
+- **中转:** [中转次数]
 
-[Repeat for 3 flights]
+✈️ **航班 3:** [价格]
+- **销售商:** [销售商名称]
+- **行程:** [出发机场] [出发时间] → [到达机场] [到达时间]
+- **时长:** [总时长]
+- **中转:** [中转次数]
 
-💡 备注: [任何重要的注意事项]
+💡 **备注:** [任何重要的注意事项, e.g. self-transfer]
 """
     prompt = prompt_template.format(json_flights_data=json.dumps(top_3_flights, indent=2, ensure_ascii=False))
 
