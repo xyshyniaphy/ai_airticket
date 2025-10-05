@@ -202,10 +202,17 @@ def scrape_flights(config):
     air_type = config.get("AIR_TYPE", "0")
 
     chrome_options = Options()
+    # 1. Essential for Docker and Headless environments
     chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+    chrome_options.add_argument("--no-sandbox") # A must-have for running as a non-root user
+    chrome_options.add_argument("--disable-dev-shm-usage") # Overcomes limited resource problems
+    
+    # 2. Performance and Stability Boosters
+    chrome_options.add_argument("--disable-gpu") # Not needed for headless, saves resources
+    chrome_options.add_argument("--window-size=1920,1080") # Set a standard resolution
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("disable-infobars")
+
     chrome_options.add_argument("--enable-logging")
     chrome_options.add_argument("--v=1")
 

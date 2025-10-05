@@ -59,7 +59,7 @@ echo "------------------------------------------------------------"
 # --rm: Automatically removes the container when it exits, keeping your system clean.
 # --name: Assigns a predictable name to the running container.
 # --env-file: Loads environment variables from the specified file.
-DOCKER_COMMAND="docker run -it --rm --name ${CONTAINER_NAME} --env-file ${ENV_FILE} ${IMAGE_NAME}"
+DOCKER_COMMAND="docker run -it --shm-size=2g  --rm --name ${CONTAINER_NAME} --env-file ${ENV_FILE} ${IMAGE_NAME}"
 
 print_info "Executing command:"
 echo "$DOCKER_COMMAND"
