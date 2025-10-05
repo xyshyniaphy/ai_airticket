@@ -1,65 +1,48 @@
 # ---- Build Stage ----
-# This stage uses Alpine Linux to build our Python dependencies.
-# The build might be slower here as some packages need to be compiled,
-# but it allows us to create a very small final image.
-FROM python:3.11-alpine AS builder
+FROM python:3.11-slim AS builder
 
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
-# Install build-time OS dependencies for Alpine.
-# 'build-base' is the equivalent of 'build-essential' on Debian.
-# We need these to compile packages like lxml from source.
-# '--no-cache' flag updates, installs, and cleans in one step.
-RUN apk add --no-cache \
-    build-base \
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
     libxml2-dev \
-    libxslt-dev
+    libxslt-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set up a virtual environment. This keeps dependencies isolated.
-ENV VIRTUAL_ENV=/app/.venv
-RUN python -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+# Install uv
+RUN pip install uv
 
-# Copy the requirements file and install dependencies using pip.
-# This step will be slower on Alpine because it compiles C extensions.
+# Create virtual environment
+RUN python -m venv .venv
+
+# Activate virtual environment and install dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
+RUN . .venv/bin/activate && uv pip install --no-cache-dir -r requirements.txt
 
 # ---- Final Stage ----
-# This stage creates the lean final image for running the application.
-FROM python:3.11-alpine
+FROM python:3.11-slim
 
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
-# Install only the RUNTIME OS dependencies for Alpine.
-# We don't need '-dev' headers or build tools in the final image.
-RUN apk add --no-cache \
+# Install runtime dependencies for lxml and selenium
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2 \
-    libxslt \
+    libxslt1.1 \
     chromium \
-    chromium-chromedriver
+    chromium-driver \
+    && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user for security.
-# 'adduser -D' is the standard, secure way to add a system user on Alpine.
-RUN adduser -D appuser
+# Copy virtual environment from builder stage
+COPY --from=builder /app/.venv .venv
 
-# Copy the virtual environment from the builder stage.
-COPY --from=builder --chown=appuser:appuser /app/.venv .venv
+# Copy application code
+COPY . .
 
-# Copy the application code and set ownership.
-COPY --chown=appuser:appuser . .
-
-# Switch to the non-root user.
-USER appuser
-
-# Add the virtual environment's executables to the PATH.
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Make the entrypoint script executable.
+# Make entrypoint executable
 RUN chmod +x entrypoint.sh
 
-# Set the entrypoint for the container.
+# Set the entrypoint
 ENTRYPOINT ["./entrypoint.sh"]
