@@ -1,71 +1,64 @@
 # ---- Build Stage ----
-# This stage installs build tools and Python packages into a virtual environment.
-FROM python:3.11-slim AS builder
+# This stage uses Alpine Linux to build our Python dependencies.
+# The build might be slower here as some packages need to be compiled,
+# but it allows us to create a very small final image.
+FROM python:3.11-alpine AS builder
 
 # Set the working directory
 WORKDIR /app
 
-# Install build-time OS dependencies required for compiling Python packages like lxml.
-# Using build-essential is a good practice as it bundles gcc, make, etc.
-# We clean up the apt cache in the same layer to reduce image size.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+# Install build-time OS dependencies for Alpine.
+# 'build-base' is the equivalent of 'build-essential' on Debian.
+# We need these to compile packages like lxml from source.
+# '--no-cache' flag updates, installs, and cleans in one step.
+RUN apk add --no-cache \
+    build-base \
     libxml2-dev \
-    libxslt-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    libxslt-dev
 
-# Set up a virtual environment to keep dependencies isolated.
-# Using ENV variables makes it easy to reference the venv path.
+# Set up a virtual environment. This keeps dependencies isolated.
 ENV VIRTUAL_ENV=/app/.venv
 RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Copy the requirements file and install dependencies using pip.
-# --no-cache-dir prevents pip from storing wheels, reducing layer size.
+# This step will be slower on Alpine because it compiles C extensions.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 
 # ---- Final Stage ----
 # This stage creates the lean final image for running the application.
-FROM python:3.11-slim
+FROM python:3.11-alpine
 
 # Set the working directory
 WORKDIR /app
 
-# Install only the RUNTIME OS dependencies.
-# We don't need the '-dev' headers or build tools in the final image.
-# We clean up the apt cache in the same layer.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install only the RUNTIME OS dependencies for Alpine.
+# We don't need '-dev' headers or build tools in the final image.
+RUN apk add --no-cache \
     libxml2 \
-    libxslt1.1 \
+    libxslt \
     chromium \
-    chromium-driver \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    chromium-driver
 
-# Create a non-root user for security purposes.
-RUN useradd --create-home --shell /bin/bash appuser
+# Create a non-root user for security.
+# 'adduser -D' is the standard, secure way to add a system user on Alpine.
+RUN adduser -D appuser
 
 # Copy the virtual environment from the builder stage.
-# This brings in all the Python packages without the build tools.
-# --chown ensures the new user owns these files.
 COPY --from=builder --chown=appuser:appuser /app/.venv .venv
 
 # Copy the application code and set ownership.
-# It's recommended to have a .dockerignore file to avoid copying unnecessary files.
 COPY --chown=appuser:appuser . .
 
 # Switch to the non-root user.
 USER appuser
 
 # Add the virtual environment's executables to the PATH.
-# This ensures that commands run in the container use the packages from our venv.
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Make the entrypoint script executable.
-# This is done by the new user, who owns the file.
 RUN chmod +x entrypoint.sh
 
 # Set the entrypoint for the container.
