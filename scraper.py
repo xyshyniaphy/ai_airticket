@@ -211,7 +211,7 @@ def scrape_flights(config):
     chrome_options.add_argument("--disable-gpu") # Not needed for headless, saves resources
     chrome_options.add_argument("--window-size=1920,1080") # Set a standard resolution
     chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("disable-infobars")
+    chrome_options.add_argument("--disable-infobars")
 
     chrome_options.add_argument("--enable-logging")
     chrome_options.add_argument("--v=1")
@@ -227,9 +227,10 @@ def scrape_flights(config):
                 driver.get(url)
 
                 try:
-                    WebDriverWait(driver, 240).until(
-                        EC.presence_of_element_located((By.CLASS_NAME, "flight-area"))
-                    )
+                    # WebDriverWait is disabled , it will crash in docker
+                    # WebDriverWait(driver, 240).until(
+                    #     EC.presence_of_element_located((By.CLASS_NAME, "flight-area"))
+                    # )
                     time.sleep(55)
 
                     html_content = driver.page_source
