@@ -40,7 +40,7 @@ RUN apk add --no-cache \
     libxml2 \
     libxslt \
     chromium \
-    chromium-driver
+    chromium-chromedriver
 
 # Create a non-root user for security.
 # 'adduser -D' is the standard, secure way to add a system user on Alpine.
