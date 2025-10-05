@@ -61,7 +61,10 @@ def generate_report(flights, config, airport_data):
     airport_names_str = ", ".join([f"{code} ({name})" for code, name in airport_names_map.items()])
     
     today_date = datetime.now().strftime('%Y年 %m月 %d日')
-
+    
+    # Get the source URL from the first flight in top_3_flights
+    # Assuming all flights in top_3_flights came from the same URL for the report
+    report_url = top_3_flights[0].get('source_url', '#')
 
     prompt_template = """You are a data formatter. Your only task is to convert the given JSON data into a specific format.
 Your response must be in Chinese.
@@ -110,6 +113,7 @@ FORMAT:
 - **行李:** [行李信息]
 
 💡 **备注:** [任何重要的注意事项, e.g. self-transfer]
+- [点此链接查看详情]({report_url})
 """
     prompt = prompt_template.format(
         today_date=today_date,
@@ -118,7 +122,8 @@ FORMAT:
         destination_airport_code=destination_airport_code,
         origin_airport_name=origin_airport_name,
         destination_airport_name=destination_airport_name,
-        airport_names=airport_names_str
+        airport_names=airport_names_str,
+        report_url=report_url
     )
     
     print(prompt)
@@ -201,6 +206,8 @@ def scrape_flights(config):
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+    chrome_options.add_argument("--enable-logging")
+    chrome_options.add_argument("--v=1")
 
     all_flights = []
     with webdriver.Chrome(options=chrome_options) as driver:
@@ -213,10 +220,10 @@ def scrape_flights(config):
                 driver.get(url)
 
                 try:
-                    WebDriverWait(driver, 120).until(
+                    WebDriverWait(driver, 240).until(
                         EC.presence_of_element_located((By.CLASS_NAME, "flight-area"))
                     )
-                    time.sleep(25)
+                    time.sleep(55)
 
                     html_content = driver.page_source
                     cleaned_html = clean_html(html_content)
@@ -227,7 +234,8 @@ def scrape_flights(config):
                     if not flights:
                         print("No flight data found.")
                         continue
-                    
+                    for flight in flights:
+                        flight['source_url'] = url
                     all_flights.extend(flights)
 
                     # Save results
