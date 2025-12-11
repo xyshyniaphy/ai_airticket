@@ -14,6 +14,11 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 from parser import parse_flight_data, clean_html
 from telegram_bot import send_telegram_message
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+import base64
+import io
 
 def load_config():
     """
@@ -39,8 +44,96 @@ def load_config():
         
     return config
 
+def render_html_to_png(html_file_path, png_file_path, config):
+    """Render HTML file to PNG using headless Chrome with mobile optimization."""
+    try:
+        chrome_options = Options()
+        # Essential for Docker and headless environments
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--disable-extensions")
+        
+        # Mobile optimization - simulate iPhone 12 Pro portrait mode
+        chrome_options.add_argument("--window-size=390,844")
+        chrome_options.add_argument("--user-agent=Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1")
+        
+        # Additional options for better rendering
+        chrome_options.add_argument("--hide-scrollbars")
+        chrome_options.add_argument("--ignore-certificate-errors")
+        chrome_options.add_argument("--enable-logging")
+        chrome_options.add_argument("--log-level=0")
+        
+        # Create driver
+        driver = webdriver.Chrome(options=chrome_options)
+        
+        # Get absolute path for the HTML file
+        abs_html_path = os.path.abspath(html_file_path)
+        file_url = f"file://{abs_html_path}"
+        
+        print(f"Loading HTML file: {file_url}")
+        driver.get(file_url)
+        
+        # Wait for page to load completely
+        time.sleep(3)
+        
+        # Get full page height for screenshot
+        total_height = driver.execute_script("return document.body.scrollHeight")
+        driver.set_window_size(390, total_height + 100)  # Add some padding
+        
+        # Take screenshot
+        driver.save_screenshot(png_file_path)
+        
+        # Cleanup
+        driver.quit()
+        
+        print(f"PNG screenshot saved to: {png_file_path}")
+        return png_file_path
+        
+    except Exception as e:
+        print(f"Error rendering HTML to PNG: {e}")
+        return None
+
+def send_telegram_photo(photo_path, config):
+    """Send photo to Telegram channel."""
+    try:
+        bot_token = config.get('TELEGRAM_BOT_TOKEN')
+        chat_id = config.get('TELEGRAM_CHAT_ID')
+        
+        if not bot_token or not chat_id:
+            print("Telegram bot token or chat ID not configured")
+            return False
+            
+        import requests
+        
+        url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+        
+        with open(photo_path, 'rb') as photo_file:
+            files = {'photo': photo_file}
+            data = {
+                'chat_id': chat_id,
+                'caption': '🛫 航班报告已生成 📱',
+                'parse_mode': 'Markdown'
+            }
+            
+            response = requests.post(url, files=files, data=data, timeout=30)
+            response.raise_for_status()
+            
+            result = response.json()
+            if result.get('ok'):
+                print(f"Photo sent to Telegram successfully")
+                return True
+            else:
+                print(f"Telegram API error: {result}")
+                return False
+                
+    except Exception as e:
+        print(f"Error sending photo to Telegram: {e}")
+        return False
+
 def generate_report(flights, config, airport_data):
-    """Generates a modern HTML webpage report for the top 3 flights using an LLM."""
+    """Generates a modern HTML webpage report and renders it as PNG using headless Chrome."""
     if not flights:
         print("No flights to generate a report for.")
         return
@@ -65,7 +158,7 @@ def generate_report(flights, config, airport_data):
     # Get the source URL from the first flight in top_3_flights
     report_url = top_3_flights[0].get('source_url', '#')
 
-    prompt_template = """You are a data formatter. Your only task is to convert the given JSON data into a modern HTML webpage format.
+    prompt_template = """You are a data formatter. Your only task is to convert the given JSON data into a modern HTML webpage format optimized for mobile viewing.
 Your response must be in Chinese.
 You MUST NOT output any text other than the complete HTML code.
 
@@ -79,7 +172,7 @@ DATA:
 ```
 
 FORMAT:
-Generate a complete, modern HTML webpage with the following structure:
+Generate a complete, modern HTML webpage optimized for mobile viewing with the following structure:
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -92,64 +185,66 @@ Generate a complete, modern HTML webpage with the following structure:
             font-family: 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif; 
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
             min-height: 100vh; 
-            padding: 20px; 
+            padding: 10px; 
             line-height: 1.6; 
+            color: #333;
         }
         .container { 
-            max-width: 1200px; 
+            max-width: 480px; /* Optimized for mobile vertical resolution */
             margin: 0 auto; 
             background: white; 
-            border-radius: 20px; 
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1); 
+            border-radius: 15px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
             overflow: hidden; 
+            margin-bottom: 20px;
         }
         .header { 
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
             color: white; 
-            padding: 40px; 
+            padding: 20px; 
             text-align: center; 
             position: relative; 
         }
         .header::before { 
             content: '✈️'; 
-            font-size: 80px; 
+            font-size: 40px; 
             position: absolute; 
-            top: 20px; 
-            right: 40px; 
+            top: 10px; 
+            right: 15px; 
             opacity: 0.3; 
         }
         .header h1 { 
-            font-size: 2.5em; 
-            margin-bottom: 10px; 
+            font-size: 1.8em; 
+            margin-bottom: 5px; 
             font-weight: 300; 
         }
         .header .subtitle { 
-            font-size: 1.2em; 
+            font-size: 1em; 
             opacity: 0.9; 
         }
         .date { 
             background: #f8f9fa; 
-            padding: 20px; 
+            padding: 12px; 
             text-align: center; 
-            font-size: 1.1em; 
+            font-size: 0.95em; 
             color: #495057; 
             border-bottom: 1px solid #dee2e6; 
         }
         .flights-container { 
-            padding: 40px; 
+            padding: 20px; 
         }
         .flight-card { 
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
-            border-radius: 15px; 
-            padding: 30px; 
-            margin-bottom: 30px; 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin-bottom: 20px; 
             color: white; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1); 
             transition: transform 0.3s ease, box-shadow 0.3s ease; 
         }
         .flight-card:hover { 
-            transform: translateY(-5px); 
-            box-shadow: 0 15px 40px rgba(0,0,0,0.15); 
+            transform: translateY(-3px); 
+            box-shadow: 0 12px 25px rgba(0,0,0,0.15); 
         }
         .flight-card:nth-child(2) { 
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
@@ -161,98 +256,121 @@ Generate a complete, modern HTML webpage with the following structure:
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
-            margin-bottom: 20px; 
-            padding-bottom: 15px; 
-            border-bottom: 2px solid rgba(255,255,255,0.3); 
+            margin-bottom: 15px; 
+            padding-bottom: 10px; 
+            border-bottom: 1px solid rgba(255,255,255,0.3); 
+            flex-wrap: wrap;
+            gap: 10px;
         }
         .flight-number { 
-            font-size: 1.8em; 
+            font-size: 1.3em; 
             font-weight: bold; 
         }
         .flight-price { 
-            font-size: 2.2em; 
+            font-size: 1.6em; 
             font-weight: bold; 
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3); 
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.3); 
         }
         .flight-details { 
             display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
-            gap: 20px; 
-            margin-top: 20px; 
+            grid-template-columns: 1fr; 
+            gap: 12px; 
+            margin-top: 15px; 
         }
         .detail-item { 
             background: rgba(255,255,255,0.1); 
-            padding: 15px; 
-            border-radius: 10px; 
+            padding: 12px; 
+            border-radius: 8px; 
             backdrop-filter: blur(10px); 
         }
         .detail-label { 
             font-weight: bold; 
-            margin-bottom: 5px; 
+            margin-bottom: 3px; 
             opacity: 0.9; 
+            font-size: 0.85em;
         }
         .detail-value { 
-            font-size: 1.1em; 
+            font-size: 0.95em; 
+            word-break: break-word;
         }
         .route-info { 
             background: rgba(255,255,255,0.15); 
-            padding: 20px; 
-            border-radius: 10px; 
-            margin: 20px 0; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 15px 0; 
             text-align: center; 
-            font-size: 1.2em; 
+            font-size: 1em; 
         }
         .airports { 
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
-            margin: 15px 0; 
+            margin: 10px 0; 
+            flex-wrap: wrap;
+            gap: 10px;
         }
         .airport { 
             text-align: center; 
+            flex: 1;
+            min-width: 80px;
         }
         .airport-code { 
-            font-size: 1.5em; 
+            font-size: 1.2em; 
             font-weight: bold; 
         }
         .airport-name { 
-            font-size: 0.9em; 
+            font-size: 0.8em; 
             opacity: 0.8; 
         }
         .arrow { 
-            font-size: 2em; 
+            font-size: 1.5em; 
             opacity: 0.7; 
+            margin: 0 5px;
         }
         .footer { 
             background: #343a40; 
             color: white; 
-            padding: 30px; 
+            padding: 20px; 
             text-align: center; 
+            font-size: 0.9em;
         }
         .footer-note { 
-            margin-bottom: 20px; 
-            font-size: 1.1em; 
+            margin-bottom: 15px; 
+            font-size: 0.95em; 
+            line-height: 1.5;
         }
         .footer-link { 
             display: inline-block; 
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
             color: white; 
-            padding: 12px 30px; 
-            border-radius: 25px; 
+            padding: 10px 20px; 
+            border-radius: 20px; 
             text-decoration: none; 
             font-weight: bold; 
             transition: all 0.3s ease; 
+            font-size: 0.9em;
         }
         .footer-link:hover { 
             transform: scale(1.05); 
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3); 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
         }
-        @media (max-width: 768px) { 
-            .header h1 { font-size: 2em; } 
+        h2 {
+            text-align: center; 
+            margin-bottom: 20px; 
+            color: #495057; 
+            font-size: 1.5em;
+            font-weight: 400;
+        }
+        @media (max-width: 480px) { 
+            .header h1 { font-size: 1.5em; } 
+            .header .subtitle { font-size: 0.9em; }
             .flight-header { flex-direction: column; text-align: center; } 
-            .flight-details { grid-template-columns: 1fr; } 
+            .flight-number { font-size: 1.1em; }
+            .flight-price { font-size: 1.4em; }
+            .flight-details { gap: 10px; }
             .airports { flex-direction: column; } 
-            .arrow { transform: rotate(90deg); margin: 20px 0; } 
+            .arrow { transform: rotate(90deg); margin: 10px 0; } 
+            .footer { padding: 15px; font-size: 0.85em; }
         }
     </style>
 </head>
@@ -266,7 +384,7 @@ Generate a complete, modern HTML webpage with the following structure:
         <div class="date">📅 今天是 {today_date}</div>
         
         <div class="flights-container">
-            <h2 style="text-align: center; margin-bottom: 30px; color: #495057; font-size: 1.8em;">🎯 最便宜的三个航班</h2>
+            <h2>🎯 最便宜的三个航班</h2>
             
             <!-- Generate flight cards for the top 3 flights -->
             <!-- Flight 1, Flight 2, Flight 3 with all details -->
@@ -285,7 +403,7 @@ Generate a complete, modern HTML webpage with the following structure:
 </body>
 </html>
 
-The HTML should be complete, modern, and beautiful with proper styling. Make it responsive and visually appealing with gradients, cards, and hover effects."""
+The HTML should be complete, modern, and beautiful with proper styling optimized for mobile viewing. Make it responsive and visually appealing with gradients, cards, and hover effects. The design should work well in vertical orientation on cell phones."""
     prompt = prompt_template.format(
         today_date=today_date,
         json_flights_data=json.dumps(top_3_flights, indent=2, ensure_ascii=False),
@@ -332,15 +450,39 @@ The HTML should be complete, modern, and beautiful with proper styling. Make it 
         # Save the HTML report to a file
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         html_filename = f"data/flight_report_{origin_airport_code}_{destination_airport_code}_{timestamp}.html"
+        png_filename = f"data/flight_report_{origin_airport_code}_{destination_airport_code}_{timestamp}.png"
         
         with open(html_filename, 'w', encoding='utf-8') as f:
             f.write(report_html)
         
         print(f"HTML report saved to: {html_filename}")
 
-        # Also send a text summary to Telegram
-        text_summary = f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}\n🔗 查看详细HTML报告: {html_filename}"
-        send_telegram_message(text_summary, config)
+        # Render HTML as PNG using headless Chrome
+        try:
+            png_path = render_html_to_png(html_filename, png_filename, config)
+            if png_path:
+                print(f"PNG screenshot saved to: {png_path}")
+                
+                # Send PNG to Telegram instead of text
+                from telegram_bot import send_telegram_photo
+                send_telegram_photo(png_path, config, caption=f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}")
+                
+                # Clean up HTML file after successful PNG generation
+                try:
+                    os.remove(html_filename)
+                    print(f"Cleaned up HTML file: {html_filename}")
+                except OSError:
+                    pass
+            else:
+                # Fallback to text if PNG generation fails
+                text_summary = f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}"
+                send_telegram_message(text_summary, config)
+                
+        except Exception as chrome_error:
+            print(f"Chrome screenshot failed: {chrome_error}")
+            # Fallback to text if Chrome fails
+            text_summary = f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}"
+            send_telegram_message(text_summary, config)
 
     except requests.exceptions.RequestException as e:
         print(f"Error generating report: {e}")
