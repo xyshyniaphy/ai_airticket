@@ -40,7 +40,7 @@ def load_config():
     return config
 
 def generate_report(flights, config, airport_data):
-    """Generates a report for the top 3 flights using an LLM."""
+    """Generates a modern HTML webpage report for the top 3 flights using an LLM."""
     if not flights:
         print("No flights to generate a report for.")
         return
@@ -63,12 +63,11 @@ def generate_report(flights, config, airport_data):
     today_date = datetime.now().strftime('%Y年 %m月 %d日')
     
     # Get the source URL from the first flight in top_3_flights
-    # Assuming all flights in top_3_flights came from the same URL for the report
     report_url = top_3_flights[0].get('source_url', '#')
 
-    prompt_template = """You are a data formatter. Your only task is to convert the given JSON data into a specific format.
+    prompt_template = """You are a data formatter. Your only task is to convert the given JSON data into a modern HTML webpage format.
 Your response must be in Chinese.
-You MUST NOT output any text other than the formatted data.
+You MUST NOT output any text other than the complete HTML code.
 
 The user is searching for flights from {origin_airport_name} ({origin_airport_code}) to {destination_airport_name} ({destination_airport_code}).
 Here is a list of airport codes and their names: {airport_names}. Please use these names in your response.
@@ -80,41 +79,213 @@ DATA:
 ```
 
 FORMAT:
-今天是 {today_date}
-从 [ {origin_airport_name} ] 到 [ {destination_airport_name} ]  的最便宜的机票如下
-✈️ **航班 1:** [价格]
-- **销售商:** [销售商名称]
-- **航司:** [航空公司]
-- **航班号:** [航班号]
-- **行程:** [出发日期] [出发时间] →  [到达日期] [到达时间]
-- **时长:** [总时长]
-- **中转:** [中转信息]
-- **机型:** [飞机型号]
-- **行李:** [行李信息]
+Generate a complete, modern HTML webpage with the following structure:
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Report - {origin_airport_name} to {destination_airport_name}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', 'Microsoft YaHei', Arial, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            min-height: 100vh; 
+            padding: 20px; 
+            line-height: 1.6; 
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1); 
+            overflow: hidden; 
+        }
+        .header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 40px; 
+            text-align: center; 
+            position: relative; 
+        }
+        .header::before { 
+            content: '✈️'; 
+            font-size: 80px; 
+            position: absolute; 
+            top: 20px; 
+            right: 40px; 
+            opacity: 0.3; 
+        }
+        .header h1 { 
+            font-size: 2.5em; 
+            margin-bottom: 10px; 
+            font-weight: 300; 
+        }
+        .header .subtitle { 
+            font-size: 1.2em; 
+            opacity: 0.9; 
+        }
+        .date { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            text-align: center; 
+            font-size: 1.1em; 
+            color: #495057; 
+            border-bottom: 1px solid #dee2e6; 
+        }
+        .flights-container { 
+            padding: 40px; 
+        }
+        .flight-card { 
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+            border-radius: 15px; 
+            padding: 30px; 
+            margin-bottom: 30px; 
+            color: white; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+            transition: transform 0.3s ease, box-shadow 0.3s ease; 
+        }
+        .flight-card:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15); 
+        }
+        .flight-card:nth-child(2) { 
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
+        }
+        .flight-card:nth-child(3) { 
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); 
+        }
+        .flight-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px; 
+            padding-bottom: 15px; 
+            border-bottom: 2px solid rgba(255,255,255,0.3); 
+        }
+        .flight-number { 
+            font-size: 1.8em; 
+            font-weight: bold; 
+        }
+        .flight-price { 
+            font-size: 2.2em; 
+            font-weight: bold; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3); 
+        }
+        .flight-details { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+            gap: 20px; 
+            margin-top: 20px; 
+        }
+        .detail-item { 
+            background: rgba(255,255,255,0.1); 
+            padding: 15px; 
+            border-radius: 10px; 
+            backdrop-filter: blur(10px); 
+        }
+        .detail-label { 
+            font-weight: bold; 
+            margin-bottom: 5px; 
+            opacity: 0.9; 
+        }
+        .detail-value { 
+            font-size: 1.1em; 
+        }
+        .route-info { 
+            background: rgba(255,255,255,0.15); 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin: 20px 0; 
+            text-align: center; 
+            font-size: 1.2em; 
+        }
+        .airports { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin: 15px 0; 
+        }
+        .airport { 
+            text-align: center; 
+        }
+        .airport-code { 
+            font-size: 1.5em; 
+            font-weight: bold; 
+        }
+        .airport-name { 
+            font-size: 0.9em; 
+            opacity: 0.8; 
+        }
+        .arrow { 
+            font-size: 2em; 
+            opacity: 0.7; 
+        }
+        .footer { 
+            background: #343a40; 
+            color: white; 
+            padding: 30px; 
+            text-align: center; 
+        }
+        .footer-note { 
+            margin-bottom: 20px; 
+            font-size: 1.1em; 
+        }
+        .footer-link { 
+            display: inline-block; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 12px 30px; 
+            border-radius: 25px; 
+            text-decoration: none; 
+            font-weight: bold; 
+            transition: all 0.3s ease; 
+        }
+        .footer-link:hover { 
+            transform: scale(1.05); 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); 
+        }
+        @media (max-width: 768px) { 
+            .header h1 { font-size: 2em; } 
+            .flight-header { flex-direction: column; text-align: center; } 
+            .flight-details { grid-template-columns: 1fr; } 
+            .airports { flex-direction: column; } 
+            .arrow { transform: rotate(90deg); margin: 20px 0; } 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✈️ 航班查询报告</h1>
+            <div class="subtitle">从 {origin_airport_name} 到 {destination_airport_name}</div>
+        </div>
+        
+        <div class="date">📅 今天是 {today_date}</div>
+        
+        <div class="flights-container">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #495057; font-size: 1.8em;">🎯 最便宜的三个航班</h2>
+            
+            <!-- Generate flight cards for the top 3 flights -->
+            <!-- Flight 1, Flight 2, Flight 3 with all details -->
+            <!-- Each flight should include: price, airline, flight number, route, duration, transfers, aircraft, baggage info -->
+            
+            [Generate the flight cards based on the JSON data provided]
+        </div>
+        
+        <div class="footer">
+            <div class="footer-note">
+                💡 <strong>备注：</strong> [Important notes about self-transfers or other requirements]
+            </div>
+            <a href="{report_url}" class="footer-link" target="_blank">🌐 点此链接查看详情</a>
+        </div>
+    </div>
+</body>
+</html>
 
-✈️ **航班 2:** [价格]
-- **销售商:** [销售商名称]
-- **航司:** [航空公司]
-- **航班号:** [航班号]
-- **行程:** [出发日期] [出发时间] →  [到达日期] [到达时间]
-- **时长:** [总时长]
-- **中转:** [中转信息]
-- **机型:** [飞机型号]
-- **行李:** [行李信息]
-
-✈️ **航班 3:** [价格]
-- **销售商:** [销售商名称]
-- **航司:** [航空公司]
-- **航班号:** [航班号]
-- **行程:** [出发日期] [出发时间] → [到达日期] [到达时间]
-- **时长:** [总时长]
-- **中转:** [中转信息]
-- **机型:** [飞机型号]
-- **行李:** [行李信息]
-
-💡 **备注:** [任何重要的注意事项, e.g. self-transfer]
-- [点此链接查看详情]({report_url})
-"""
+The HTML should be complete, modern, and beautiful with proper styling. Make it responsive and visually appealing with gradients, cards, and hover effects."""
     prompt = prompt_template.format(
         today_date=today_date,
         json_flights_data=json.dumps(top_3_flights, indent=2, ensure_ascii=False),
@@ -152,16 +323,24 @@ FORMAT:
         
         result = response.json()
         
-        report_text = result['candidates'][0]['content']['parts'][0]['text']
+        report_html = result['candidates'][0]['content']['parts'][0]['text']
 
+        print("\n--- Generated HTML Report ---")
+        print(f"HTML length: {len(report_html)} characters")
+        print("--- End of HTML Report ---\n")
 
-        #report_text= 'test message'
+        # Save the HTML report to a file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        html_filename = f"data/flight_report_{origin_airport_code}_{destination_airport_code}_{timestamp}.html"
+        
+        with open(html_filename, 'w', encoding='utf-8') as f:
+            f.write(report_html)
+        
+        print(f"HTML report saved to: {html_filename}")
 
-        print("\n--- LLM Report ---")
-        print(report_text)
-        print("--- End of Report ---\n")
-
-        send_telegram_message(report_text, config)
+        # Also send a text summary to Telegram
+        text_summary = f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}\n🔗 查看详细HTML报告: {html_filename}"
+        send_telegram_message(text_summary, config)
 
     except requests.exceptions.RequestException as e:
         print(f"Error generating report: {e}")
