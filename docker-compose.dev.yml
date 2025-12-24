@@ -1,0 +1,21 @@
+# Docker Compose for Development
+# Mounts source code as volumes so changes are reflected immediately
+# No need to rebuild the image when editing Python/HTML files
+
+services:
+  ai-air-ticket-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      # Mount data directory for persistence
+      - ./data:/app/data
+      # Mount source files for live code editing
+      - ./scraper.py:/app/scraper.py
+      - ./parser.py:/app/parser.py
+      - ./telegram_bot.py:/app/telegram_bot.py
+      - ./template.html:/app/template.html
+      - ./iata-icao.csv:/app/iata-icao.csv
+    shm_size: 2gb
