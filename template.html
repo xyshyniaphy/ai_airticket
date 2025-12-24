@@ -59,18 +59,18 @@
             padding: 20px;
         }}
         .flight-card {{
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            background: linear-gradient(135deg, #c0392f 0%, #8e44ad 100%);
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 20px;
             color: white;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
         }}
         .flight-card:nth-child(2) {{
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            background: linear-gradient(135deg, #2980b9 0%, #16a085 100%);
         }}
         .flight-card:nth-child(3) {{
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            background: linear-gradient(135deg, #27ae60 0%, #d35400 100%);
         }}
         .flight-header {{
             display: flex;
@@ -98,7 +98,7 @@
             margin-top: 15px;
         }}
         .detail-item {{
-            background: rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.2);
             padding: 12px;
             border-radius: 8px;
             backdrop-filter: blur(10px);
@@ -106,7 +106,7 @@
         .detail-label {{
             font-weight: bold;
             margin-bottom: 3px;
-            opacity: 0.9;
+            opacity: 1;
             font-size: 0.85em;
         }}
         .detail-value {{
@@ -114,7 +114,7 @@
             word-break: break-word;
         }}
         .route-info {{
-            background: rgba(255,255,255,0.15);
+            background: rgba(0,0,0,0.2);
             padding: 15px;
             border-radius: 8px;
             margin: 15px 0;
@@ -140,17 +140,17 @@
         }}
         .airport-name {{
             font-size: 0.8em;
-            opacity: 0.8;
+            opacity: 1;
         }}
         .arrow {{
             font-size: 1.5em;
-            opacity: 0.7;
+            opacity: 1;
             margin: 0 5px;
         }}
         .footer {{
             background: #343a40;
             color: white;
-            padding: 20px;
+            padding: 20px 20px 40px 20px;
             text-align: center;
             font-size: 0.9em;
         }}
@@ -180,6 +180,43 @@
             color: #495057;
             font-size: 1.5em;
             font-weight: 400;
+        }}
+        .flight-comment {{
+            background: rgba(0,0,0,0.25);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            backdrop-filter: blur(10px);
+        }}
+        .comment-title {{
+            font-size: 0.95em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            opacity: 1;
+        }}
+        .comment-content {{
+            font-size: 0.9em;
+            line-height: 1.6;
+            opacity: 1;
+        }}
+        .comment-content p {{
+            margin: 0 0 8px 0;
+        }}
+        .comment-content p:last-child {{
+            margin-bottom: 0;
+        }}
+        .comment-content ul {{
+            margin: 5px 0;
+            padding-left: 20px;
+        }}
+        .comment-content li {{
+            margin: 3px 0;
+        }}
+        .comment-content strong {{
+            font-weight: 600;
+        }}
+        .comment-content em {{
+            font-style: italic;
         }}
         @media (max-width: 480px) {{
             .header h1 {{ font-size: 1.5em; }}

@@ -19,6 +19,8 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 import base64
 import io
+import markdown
+from PIL import Image
 
 def load_config():
     """
@@ -45,17 +47,22 @@ def load_config():
     return config
 
 def render_html_to_png(html_file_path, png_file_path, config):
-    """Render HTML file to PNG using headless Chrome with mobile optimization.
+    """Render HTML file to JPG using headless Chrome with mobile optimization.
 
     Args:
         html_file_path: Path to the HTML file to render
-        png_file_path: Path where the PNG will be saved
+        png_file_path: Path where the JPG will be saved (note: param name kept for compatibility)
         config: Configuration dict (not currently used, but kept for compatibility)
 
     Returns:
-        Path to the PNG file if successful, None otherwise
+        Path to the JPG file if successful, None otherwise
     """
     driver = None
+    # Temporary PNG path for Selenium screenshot
+    temp_png_path = png_file_path.replace('.jpg', '.png').replace('.jpeg', '.png')
+    if temp_png_path == png_file_path:
+        temp_png_path = png_file_path + '_temp.png'
+
     try:
         # Setup Chrome options for headless rendering
         chrome_options = Options()
@@ -120,20 +127,45 @@ def render_html_to_png(html_file_path, png_file_path, config):
         # Final wait after resize
         time.sleep(0.5)
 
-        # Take full page screenshot
-        driver.save_screenshot(png_file_path)
+        # Take full page screenshot as PNG (Selenium only supports PNG)
+        driver.save_screenshot(temp_png_path)
+
+        # Convert PNG to JPG with moderate quality
+        if os.path.exists(temp_png_path):
+            img = Image.open(temp_png_path)
+            # Convert to RGB (JPG doesn't support transparency)
+            if img.mode in ('RGBA', 'LA', 'P'):
+                background = Image.new('RGB', img.size, (255, 255, 255))
+                if img.mode == 'P':
+                    img = img.convert('RGBA')
+                background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+                img = background
+            elif img.mode != 'RGB':
+                img = img.convert('RGB')
+
+            # Save as JPG with moderate quality (75)
+            img.save(png_file_path, 'JPEG', quality=75, optimize=True)
+
+            # Delete temporary PNG file
+            os.remove(temp_png_path)
 
         # Verify file was created
         if os.path.exists(png_file_path) and os.path.getsize(png_file_path) > 0:
             file_size_kb = os.path.getsize(png_file_path) / 1024
-            print(f"PNG screenshot saved: {png_file_path} ({file_size_kb:.1f} KB)")
+            print(f"JPG screenshot saved: {png_file_path} ({file_size_kb:.1f} KB)")
             return png_file_path
         else:
-            print(f"Error: PNG file was not created or is empty")
+            print(f"Error: JPG file was not created or is empty")
             return None
 
     except Exception as e:
-        print(f"Error rendering HTML to PNG: {type(e).__name__}: {e}")
+        print(f"Error rendering HTML to JPG: {type(e).__name__}: {e}")
+        # Clean up temp file if it exists
+        if os.path.exists(temp_png_path):
+            try:
+                os.remove(temp_png_path)
+            except:
+                pass
         return None
 
     finally:
@@ -182,7 +214,7 @@ def send_telegram_photo(photo_path, config):
         print(f"Error sending photo to Telegram: {e}")
         return False
 
-def generate_flight_card_html(flight, index):
+def generate_flight_card_html(flight, index, comment_html=""):
     """Generate HTML for a single flight card."""
     header = f'''        <div class="flight-card">
             <div class="flight-header">
@@ -238,9 +270,18 @@ def generate_flight_card_html(flight, index):
 
     closing = '''        </div>'''
 
+    comment_section = ""
+    if comment_html:
+        comment_section = f'''
+        <div class="flight-comment">
+            <div class="comment-title">💡 航班点评</div>
+            <div class="comment-content">{comment_html}</div>
+        </div>'''
+
     return f'''{header}
 {route_info}
 {details}
+{comment_section}
 {closing}
     </div>'''
 
@@ -319,8 +360,8 @@ def generate_report(flights, config, airport_data):
     # Get the source URL from the first flight in top_3_flights
     report_url = top_3_flights[0].get('source_url', '#')
 
-    # Generate summary and notes via LLM
-    prompt_template = """You are a flight analysis assistant. Analyze the flight data and provide a detailed summary and help info in Chinese.
+    # Generate summary and flight comments via LLM
+    prompt_template = """You are a flight analysis assistant. Analyze the flight data and provide a detailed summary and individual flight comments in Chinese.
 
 DATA:
 ```json
@@ -331,11 +372,23 @@ OUTPUT FORMAT (valid JSON only, no markdown):
 ```json
 {{
     "summary_note": "Brief note about the flights (e.g., self-transfer requirements, best value recommendations, price differences)",
-    "highlights": ["key point 1", "key point 2", "key point 3"]
+    "flight_comments": [
+        "Comment for flight 1 in markdown format - discuss transfer info, what to watch out for, pros/cons",
+        "Comment for flight 2 in markdown format - discuss transfer info, what to watch out for, pros/cons",
+        "Comment for flight 3 in markdown format - discuss transfer info, what to watch out for, pros/cons"
+    ]
 }}
 ```
 
-Keep the summary_note concise (under 100 Chinese characters). Focus on important information for travelers."""
+IMPORTANT: Each flight comment should include:
+- Transfer information (if any): self-transfer or protected transfer
+- What travelers should watch out for: layover time, visa requirements, terminal changes
+- Pros: price, timing, airline quality
+- Cons: long layover, early departure, etc.
+
+Use markdown formatting: **bold**, *italic*, - bullets, numbered lists.
+
+Keep the summary_note concise (under 100 Chinese characters). Keep each flight comment under 150 Chinese characters."""
     prompt = prompt_template.format(
         json_flights_data=json.dumps(top_3_flights, indent=2, ensure_ascii=False)
     )
@@ -352,8 +405,9 @@ Keep the summary_note concise (under 100 Chinese characters). Focus on important
         }]
     }
 
-    # Default summary note
+    # Default summary and comments
     summary_note = "以上为最便宜的三个航班选项，请根据个人需求选择。"
+    flight_comments = ["暂无详细信息", "暂无详细信息", "暂无详细信息"]
 
     try:
         response = requests.post(url, headers=headers, json=data, timeout=60)
@@ -369,15 +423,18 @@ Keep the summary_note concise (under 100 Chinese characters). Focus on important
 
         summary_data = json.loads(json_str)
         summary_note = summary_data.get('summary_note', summary_note)
+        flight_comments = summary_data.get('flight_comments', flight_comments)
         print(f"LLM Summary: {summary_note}")
 
     except Exception as e:
         print(f"LLM analysis failed: {e}, using default summary")
 
-    # Generate flight cards HTML
+    # Generate flight cards HTML with comments
     flight_cards_html = ""
     for i, flight in enumerate(top_3_flights):
-        flight_cards_html += generate_flight_card_html(flight, i)
+        comment_md = flight_comments[i] if i < len(flight_comments) else ""
+        comment_html = markdown.markdown(comment_md) if comment_md else ""
+        flight_cards_html += generate_flight_card_html(flight, i, comment_html)
 
     # Load HTML template and fill with data
     template_path = os.path.join(os.path.dirname(__file__), 'template.html')
@@ -401,7 +458,7 @@ Keep the summary_note concise (under 100 Chinese characters). Focus on important
     # Save and render
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     html_filename = f"data/flight_report_{origin_airport_code}_{destination_airport_code}_{timestamp}.html"
-    png_filename = f"data/flight_report_{origin_airport_code}_{destination_airport_code}_{timestamp}.png"
+    jpg_filename = f"data/flight_report_{origin_airport_code}_{destination_airport_code}_{timestamp}.jpg"
 
     os.makedirs("data", exist_ok=True)
 
@@ -415,18 +472,18 @@ Keep the summary_note concise (under 100 Chinese characters). Focus on important
     telegram_chat_id = config.get('TELEGRAM_CHAT_ID')
     telegram_enabled = telegram_token and telegram_chat_id and telegram_token.strip() and telegram_chat_id.strip()
 
-    # Render HTML as PNG using headless Chrome
+    # Render HTML as JPG using headless Chrome
     try:
-        png_path = render_html_to_png(html_filename, png_filename, config)
-        if png_path:
-            print(f"PNG screenshot saved to: {png_path}")
+        jpg_path = render_html_to_png(html_filename, jpg_filename, config)
+        if jpg_path:
+            print(f"JPG screenshot saved to: {jpg_path}")
 
             if telegram_enabled:
-                # Send PNG to Telegram
+                # Send JPG to Telegram
                 from telegram_bot import send_telegram_photo
-                send_telegram_photo(png_path, config, caption=f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}")
+                send_telegram_photo(jpg_path, config, caption=f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}")
 
-                # Clean up HTML file after successful PNG generation
+                # Clean up HTML file after successful JPG generation
                 try:
                     os.remove(html_filename)
                     print(f"Cleaned up HTML file: {html_filename}")
@@ -436,9 +493,9 @@ Keep the summary_note concise (under 100 Chinese characters). Focus on important
                 print("Telegram not configured (TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID missing)")
                 print(f"Report files saved to data folder:")
                 print(f"  - HTML: {html_filename}")
-                print(f"  - PNG:  {png_filename}")
+                print(f"  - JPG:  {jpg_filename}")
         else:
-            print("PNG generation failed, HTML file preserved for debugging")
+            print("JPG generation failed, HTML file preserved for debugging")
 
     except Exception as chrome_error:
         print(f"Chrome screenshot failed: {chrome_error}")
