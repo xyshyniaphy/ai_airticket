@@ -353,30 +353,42 @@ Keep the summary_note concise (under 100 Chinese characters). Focus on important
 
     print(f"HTML report saved to: {html_filename}")
 
+    # Check if Telegram is configured
+    telegram_token = config.get('TELEGRAM_BOT_TOKEN')
+    telegram_chat_id = config.get('TELEGRAM_CHAT_ID')
+    telegram_enabled = telegram_token and telegram_chat_id and telegram_token.strip() and telegram_chat_id.strip()
+
     # Render HTML as PNG using headless Chrome
     try:
         png_path = render_html_to_png(html_filename, png_filename, config)
         if png_path:
             print(f"PNG screenshot saved to: {png_path}")
 
-            # Send PNG to Telegram
-            from telegram_bot import send_telegram_photo
-            send_telegram_photo(png_path, config, caption=f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}")
+            if telegram_enabled:
+                # Send PNG to Telegram
+                from telegram_bot import send_telegram_photo
+                send_telegram_photo(png_path, config, caption=f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}")
 
-            # Clean up HTML file after successful PNG generation
-            try:
-                os.remove(html_filename)
-                print(f"Cleaned up HTML file: {html_filename}")
-            except OSError:
-                pass
+                # Clean up HTML file after successful PNG generation
+                try:
+                    os.remove(html_filename)
+                    print(f"Cleaned up HTML file: {html_filename}")
+                except OSError:
+                    pass
+            else:
+                print("Telegram not configured (TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID missing)")
+                print(f"Report files saved to data folder:")
+                print(f"  - HTML: {html_filename}")
+                print(f"  - PNG:  {png_filename}")
         else:
-            text_summary = f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}"
-            send_telegram_message(text_summary, config)
+            print("PNG generation failed, HTML file preserved for debugging")
 
     except Exception as chrome_error:
         print(f"Chrome screenshot failed: {chrome_error}")
-        text_summary = f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}"
-        send_telegram_message(text_summary, config)
+        print(f"HTML file saved to: {html_filename}")
+        if telegram_enabled:
+            text_summary = f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}"
+            send_telegram_message(text_summary, config)
 
 def get_flights_from_cache():
     """Reads flight data from the latest cache file."""
