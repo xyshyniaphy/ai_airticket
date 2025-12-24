@@ -27,13 +27,14 @@ FROM python:3.12-slim
 # Set working directory
 WORKDIR /app
 
-# Install runtime dependencies for lxml and selenium, plus Chinese fonts
+# Install runtime dependencies for lxml and selenium, plus Chinese and emoji fonts
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2 \
     libxslt1.1 \
     chromium \
     chromium-driver \
     fonts-noto-cjk \
+    fonts-noto-color-emoji \
     fonts-wqy-microhei \
     && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*

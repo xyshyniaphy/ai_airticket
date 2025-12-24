@@ -67,8 +67,9 @@ def render_html_to_png(html_file_path, png_file_path, config):
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--disable-extensions")
 
-        # Mobile viewport - optimize for vertical phone display
-        chrome_options.add_argument("--window-size=390,844")
+        # Mobile viewport - 2x resolution for high quality
+        chrome_options.add_argument("--window-size=780,1688")
+        chrome_options.add_argument("--force-device-scale-factor=2")
         chrome_options.add_argument("--user-agent=Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1")
 
         # Additional rendering options
@@ -319,7 +320,7 @@ def generate_report(flights, config, airport_data):
     report_url = top_3_flights[0].get('source_url', '#')
 
     # Generate summary and notes via LLM
-    prompt_template = """You are a flight analysis assistant. Analyze the flight data and provide a summary in Chinese.
+    prompt_template = """You are a flight analysis assistant. Analyze the flight data and provide a detailed summary and help info in Chinese.
 
 DATA:
 ```json
