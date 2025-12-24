@@ -43,7 +43,16 @@ def send_telegram_photo(photo_path, config, caption="🛫 航班报告已生成 
                 'parse_mode': 'Markdown'
             }
             
+            # Debug: log the request
+            print(f"Sending photo to Telegram chat_id={chat_id}")
+
             response = requests.post(url, files=files, data=data, timeout=30)
+
+            # Debug: log response for troubleshooting
+            print(f"Telegram response status: {response.status_code}")
+            if response.status_code != 200:
+                print(f"Telegram response body: {response.text}")
+
             response.raise_for_status()
             
             result = response.json()

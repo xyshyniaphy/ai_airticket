@@ -178,43 +178,6 @@ def render_html_to_png(html_file_path, png_file_path, config):
             except Exception as e:
                 print(f"Warning: Error closing driver: {e}")
 
-def send_telegram_photo(photo_path, config):
-    """Send photo to Telegram channel."""
-    try:
-        bot_token = config.get('TELEGRAM_BOT_TOKEN')
-        chat_id = config.get('TELEGRAM_CHAT_ID')
-        
-        if not bot_token or not chat_id:
-            print("Telegram bot token or chat ID not configured")
-            return False
-            
-        import requests
-        
-        url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
-        
-        with open(photo_path, 'rb') as photo_file:
-            files = {'photo': photo_file}
-            data = {
-                'chat_id': chat_id,
-                'caption': '🛫 航班报告已生成 📱',
-                'parse_mode': 'Markdown'
-            }
-            
-            response = requests.post(url, files=files, data=data, timeout=30)
-            response.raise_for_status()
-            
-            result = response.json()
-            if result.get('ok'):
-                print(f"Photo sent to Telegram successfully")
-                return True
-            else:
-                print(f"Telegram API error: {result}")
-                return False
-                
-    except Exception as e:
-        print(f"Error sending photo to Telegram: {e}")
-        return False
-
 def generate_flight_card_html(flight, index, comment_html=""):
     """Generate HTML for a single flight card (one-way)."""
     header = f'''        <div class="flight-card">
@@ -675,7 +638,7 @@ Keep the summary_note concise (under 100 Chinese characters). Keep each flight c
             if telegram_enabled:
                 # Send JPG to Telegram
                 from telegram_bot import send_telegram_photo
-                send_telegram_photo(jpg_path, config, caption=f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}")
+                send_telegram_photo(jpg_path, config, caption=f"🛫 航班报告: {origin_airport_name} → {destination_airport_name} ({today_date})")
 
                 # Clean up HTML file after successful JPG generation
                 try:
@@ -695,7 +658,7 @@ Keep the summary_note concise (under 100 Chinese characters). Keep each flight c
         print(f"Chrome screenshot failed: {chrome_error}")
         print(f"HTML file saved to: {html_filename}")
         if telegram_enabled:
-            text_summary = f"🛫 航班报告已生成\n📍 从 {origin_airport_name} 到 {destination_airport_name}\n📅 {today_date}"
+            text_summary = f"🛫 航班报告: {origin_airport_name} → {destination_airport_name} ({today_date})"
             send_telegram_message(text_summary, config)
 
 def get_flights_from_cache():
