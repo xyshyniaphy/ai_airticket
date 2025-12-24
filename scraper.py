@@ -36,6 +36,7 @@ def load_config():
     config['ORIGIN'] = os.environ.get('ORIGIN')
     config['DESTINATIONS'] = os.environ.get('DESTINATIONS')
     config['DEPARTURE_DATES'] = os.environ.get('DEPARTURE_DATES')
+    config['RETURN_DATES'] = os.environ.get('RETURN_DATES')  # For round trip
     config['AIR_TYPE'] = os.environ.get('AIR_TYPE')
     config['USE_CACHE'] = os.environ.get('USE_CACHE')
     config['TELEGRAM_BOT_TOKEN'] = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -215,7 +216,7 @@ def send_telegram_photo(photo_path, config):
         return False
 
 def generate_flight_card_html(flight, index, comment_html=""):
-    """Generate HTML for a single flight card."""
+    """Generate HTML for a single flight card (one-way)."""
     header = f'''        <div class="flight-card">
             <div class="flight-header">
                 <div class="flight-number">#{index + 1} {flight['airline']}</div>
@@ -286,6 +287,130 @@ def generate_flight_card_html(flight, index, comment_html=""):
     </div>'''
 
 
+def generate_round_trip_flight_card_html(flight, index, outbound_comment_html="", return_comment_html=""):
+    """Generate HTML for a round-trip flight with two linked cards (outbound + return).
+
+    Args:
+        flight: Round trip flight dict with outbound, return, stay_duration keys
+        index: Flight index number
+        outbound_comment_html: HTML comment for outbound flight
+        return_comment_html: HTML comment for return flight
+    """
+    outbound = flight['outbound']
+    return_flight = flight['return']
+    stay_duration = flight.get('stay_duration', 'N/A')
+
+    # Outbound flight card
+    outbound_card = f'''        <div class="flight-card flight-card-outbound">
+            <div class="flight-header">
+                <div class="flight-number">#{index + 1} 往路 {outbound['airline']}</div>
+                <div class="flight-price">{flight['price']}</div>
+            </div>
+            <div class="trip-label">往路</div>
+            <div class="route-info">
+                <div class="airports">
+                    <div class="airport">
+                        <div class="airport-code">{outbound['departure']['airport']}</div>
+                        <div class="airport-name">{outbound['departure']['date']} {outbound['departure']['time']}</div>
+                    </div>
+                    <div class="arrow">✈️</div>
+                    <div class="airport">
+                        <div class="airport-code">{outbound['arrival']['airport']}</div>
+                        <div class="airport-name">{outbound['arrival']['date']} {outbound['arrival']['time']}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="flight-details">
+                <div class="detail-item">
+                    <div class="detail-label">⏱️ 飞行时长</div>
+                    <div class="detail-value">{outbound['duration']}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">🔄 中转</div>
+                    <div class="detail-value">{outbound['transfers']['count_str']}</div>
+                </div>
+            </div>'''
+
+    if outbound_comment_html:
+        outbound_card += f'''
+            <div class="flight-comment">
+                <div class="comment-title">💡 往路点评</div>
+                <div class="comment-content">{outbound_comment_html}</div>
+            </div>'''
+
+    outbound_card += '''        </div>'''
+
+    # Stay duration connector
+    stay_connector = f'''        <div class="stay-connector">
+            <div class="stay-duration">🏨 停留 {stay_duration}</div>
+            <div class="stay-arrow">⬇️</div>
+        </div>'''
+
+    # Return flight card
+    return_card = f'''        <div class="flight-card flight-card-return">
+            <div class="flight-header">
+                <div class="flight-number">復路 {return_flight['airline']}</div>
+            </div>
+            <div class="trip-label trip-label-return">復路</div>
+            <div class="route-info">
+                <div class="airports">
+                    <div class="airport">
+                        <div class="airport-code">{return_flight['departure']['airport']}</div>
+                        <div class="airport-name">{return_flight['departure']['date']} {return_flight['departure']['time']}</div>
+                    </div>
+                    <div class="arrow">✈️</div>
+                    <div class="airport">
+                        <div class="airport-code">{return_flight['arrival']['airport']}</div>
+                        <div class="airport-name">{return_flight['arrival']['date']} {return_flight['arrival']['time']}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="flight-details">
+                <div class="detail-item">
+                    <div class="detail-label">⏱️ 飞行时长</div>
+                    <div class="detail-value">{return_flight['duration']}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">🔄 中转</div>
+                    <div class="detail-value">{return_flight['transfers']['count_str']}</div>
+                </div>
+            </div>'''
+
+    if return_comment_html:
+        return_card += f'''
+            <div class="flight-comment">
+                <div class="comment-title">💡 返程点评</div>
+                <div class="comment-content">{return_comment_html}</div>
+            </div>'''
+
+    # Add baggage and provider info to return card (shared for round trip)
+    if flight.get('baggage'):
+        baggage_str = ', '.join(flight['baggage'])
+        return_card += f'''
+            <div class="flight-details">
+                <div class="detail-item">
+                    <div class="detail-label">🎒 行李</div>
+                    <div class="detail-value">{baggage_str}</div>
+                </div>
+            </div>'''
+
+    if flight.get('provider_name'):
+        return_card += f'''
+            <div class="flight-details">
+                <div class="detail-item">
+                    <div class="detail-label">🏢 销售商</div>
+                    <div class="detail-value">{flight['provider_name']}</div>
+                </div>
+            </div>'''
+
+    return_card += '''        </div>'''
+
+    return f'''{outbound_card}
+{stay_connector}
+{return_card}
+'''
+
+
 def normalize_flight_data(flights):
     """Normalize flight data from different formats to the standard format.
 
@@ -346,12 +471,21 @@ def generate_report(flights, config, airport_data):
         print("No flights to generate a report for.")
         return
 
-    # Normalize flight data to handle both old and new formats
-    flights = normalize_flight_data(flights)
-    top_3_flights = flights[:3]
+    # Check if this is round trip data
+    is_round_trip = flights and flights[0].get('trip_type') == 'round_trip'
 
-    origin_airport_code = top_3_flights[0]['departure']['airport']
-    destination_airport_code = top_3_flights[0]['arrival']['airport']
+    if is_round_trip:
+        # For round trip, don't normalize (data is already in correct format)
+        top_3_flights = flights[:3]
+        origin_airport_code = top_3_flights[0]['outbound']['departure']['airport']
+        destination_airport_code = top_3_flights[0]['outbound']['arrival']['airport']
+    else:
+        # Normalize flight data to handle both old and new formats for one-way
+        flights = normalize_flight_data(flights)
+        top_3_flights = flights[:3]
+        origin_airport_code = top_3_flights[0]['departure']['airport']
+        destination_airport_code = top_3_flights[0]['arrival']['airport']
+
     origin_airport_name = airport_data.get(origin_airport_code, origin_airport_code)
     destination_airport_name = airport_data.get(destination_airport_code, destination_airport_code)
 
@@ -361,7 +495,44 @@ def generate_report(flights, config, airport_data):
     report_url = top_3_flights[0].get('source_url', '#')
 
     # Generate summary and flight comments via LLM
-    prompt_template = """You are a flight analysis assistant. Analyze the flight data and provide a detailed summary and individual flight comments in Chinese.
+    if is_round_trip:
+        # Round trip prompt - separate comments for outbound and return
+        prompt_template = """You are a flight analysis assistant. Analyze the round-trip flight data and provide a detailed summary and individual flight comments in Chinese.
+
+DATA:
+```json
+{json_flights_data}
+```
+
+OUTPUT FORMAT (valid JSON only, no markdown):
+```json
+{{
+    "summary_note": "Brief note about the round-trip flights (e.g., self-transfer requirements, best value recommendations, stay duration)",
+    "outbound_comments": [
+        "Comment for outbound flight 1 in markdown format - discuss transfer info, what to watch out for, pros/cons",
+        "Comment for outbound flight 2 in markdown format",
+        "Comment for outbound flight 3 in markdown format"
+    ],
+    "return_comments": [
+        "Comment for return flight 1 in markdown format - discuss transfer info, what to watch out for, pros/cons",
+        "Comment for return flight 2 in markdown format",
+        "Comment for return flight 3 in markdown format"
+    ]
+}}
+```
+
+IMPORTANT: Each flight comment should include:
+- Transfer information (if any): self-transfer or protected transfer
+- What travelers should watch out for: layover time, visa requirements, terminal changes
+- Pros: price, timing, airline quality
+- Cons: long layover, early departure, etc.
+
+Use markdown formatting: **bold**, *italic*, - bullets, numbered lists.
+
+Keep the summary_note concise (under 100 Chinese characters). Keep each flight comment under 150 Chinese characters."""
+    else:
+        # One-way prompt
+        prompt_template = """You are a flight analysis assistant. Analyze the flight data and provide a detailed summary and individual flight comments in Chinese.
 
 DATA:
 ```json
@@ -389,6 +560,7 @@ IMPORTANT: Each flight comment should include:
 Use markdown formatting: **bold**, *italic*, - bullets, numbered lists.
 
 Keep the summary_note concise (under 100 Chinese characters). Keep each flight comment under 150 Chinese characters."""
+
     prompt = prompt_template.format(
         json_flights_data=json.dumps(top_3_flights, indent=2, ensure_ascii=False)
     )
@@ -407,7 +579,11 @@ Keep the summary_note concise (under 100 Chinese characters). Keep each flight c
 
     # Default summary and comments
     summary_note = "以上为最便宜的三个航班选项，请根据个人需求选择。"
-    flight_comments = ["暂无详细信息", "暂无详细信息", "暂无详细信息"]
+    if is_round_trip:
+        outbound_comments = ["暂无详细信息", "暂无详细信息", "暂无详细信息"]
+        return_comments = ["暂无详细信息", "暂无详细信息", "暂无详细信息"]
+    else:
+        flight_comments = ["暂无详细信息", "暂无详细信息", "暂无详细信息"]
 
     try:
         response = requests.post(url, headers=headers, json=data, timeout=60)
@@ -423,7 +599,13 @@ Keep the summary_note concise (under 100 Chinese characters). Keep each flight c
 
         summary_data = json.loads(json_str)
         summary_note = summary_data.get('summary_note', summary_note)
-        flight_comments = summary_data.get('flight_comments', flight_comments)
+
+        if is_round_trip:
+            outbound_comments = summary_data.get('outbound_comments', outbound_comments)
+            return_comments = summary_data.get('return_comments', return_comments)
+        else:
+            flight_comments = summary_data.get('flight_comments', flight_comments)
+
         print(f"LLM Summary: {summary_note}")
 
     except Exception as e:
@@ -431,10 +613,22 @@ Keep the summary_note concise (under 100 Chinese characters). Keep each flight c
 
     # Generate flight cards HTML with comments
     flight_cards_html = ""
-    for i, flight in enumerate(top_3_flights):
-        comment_md = flight_comments[i] if i < len(flight_comments) else ""
-        comment_html = markdown.markdown(comment_md) if comment_md else ""
-        flight_cards_html += generate_flight_card_html(flight, i, comment_html)
+    if is_round_trip:
+        # Round trip cards
+        for i, flight in enumerate(top_3_flights):
+            outbound_comment_md = outbound_comments[i] if i < len(outbound_comments) else ""
+            outbound_comment_html = markdown.markdown(outbound_comment_md) if outbound_comment_md else ""
+            return_comment_md = return_comments[i] if i < len(return_comments) else ""
+            return_comment_html = markdown.markdown(return_comment_md) if return_comment_md else ""
+            flight_cards_html += generate_round_trip_flight_card_html(
+                flight, i, outbound_comment_html, return_comment_html
+            )
+    else:
+        # One-way cards
+        for i, flight in enumerate(top_3_flights):
+            comment_md = flight_comments[i] if i < len(flight_comments) else ""
+            comment_html = markdown.markdown(comment_md) if comment_md else ""
+            flight_cards_html += generate_flight_card_html(flight, i, comment_html)
 
     # Load HTML template and fill with data
     template_path = os.path.join(os.path.dirname(__file__), 'template.html')
@@ -534,6 +728,7 @@ def scrape_flights(config):
     origin = config.get("ORIGIN")
     destinations = config.get("DESTINATIONS", "").split(',')
     departure_dates = config.get("DEPARTURE_DATES", "").split(',')
+    return_dates = config.get("RETURN_DATES", "").split(',') if config.get("RETURN_DATES") else None
     air_type = config.get("AIR_TYPE", "0")
 
     chrome_options = Options()
@@ -554,10 +749,40 @@ def scrape_flights(config):
     all_flights = []
     with webdriver.Chrome(options=chrome_options) as driver:
         for dest in destinations:
-            for date in departure_dates:
-                print(f"Scraping for {origin} -> {dest} on {date}...")
-                slice_info = f"{origin}-{dest}"
-                url = f"https://www.tour.ne.jp/w_air/list/?air_type={air_type}&slice_info={slice_info}#dpt_date={date}&page_from=index"
+            for i, dep_date in enumerate(departure_dates):
+                # For round trip, we need a return date
+                if air_type == "1":
+                    # If return_dates is provided, use corresponding index, otherwise use first return date
+                    if return_dates and i < len(return_dates):
+                        ret_date = return_dates[i]
+                    elif return_dates:
+                        ret_date = return_dates[0]  # Use first return date for all
+                    else:
+                        # Default: use same date list for return (assume paired)
+                        ret_date = dep_date  # This shouldn't happen, but fallback
+
+                    # Round trip URL format (dates in dpt_date, NOT in slice_info)
+                    # ?dpt_airport=|DEST&dst_airport=DEST|&slice_info=ORIG-air.DEST|air.DEST-ORIG#dpt_date=DEP|RET
+                    dpt_airport = f"|{dest}"
+                    dst_airport = f"{dest}|"
+                    slice_info = f"{origin}-air.{dest}|air.{dest}-{origin}"
+                    dpt_date_param = f"{dep_date}|{ret_date}"
+                    print(f"Scraping round trip: {origin} -> {dest} on {dep_date}, returning on {ret_date}...")
+                else:
+                    # One-way URL format
+                    dpt_airport = ""
+                    dst_airport = ""
+                    slice_info = f"{origin}-{dest}"
+                    dpt_date_param = dep_date
+                    print(f"Scraping for {origin} -> {dest} on {dep_date}...")
+
+                # Build URL
+                url = f"https://www.tour.ne.jp/w_air/list/?air_type={air_type}"
+                if dpt_airport:
+                    url += f"&dpt_airport={dpt_airport}"
+                if dst_airport:
+                    url += f"&dst_airport={dst_airport}"
+                url += f"&slice_info={slice_info}#dpt_date={dpt_date_param}&page_from=index"
 
                 driver.get(url)
 
@@ -572,7 +797,7 @@ def scrape_flights(config):
                     cleaned_html = clean_html(html_content)
 
                     soup = BeautifulSoup(cleaned_html, 'lxml')
-                    flights = parse_flight_data(soup)
+                    flights = parse_flight_data(soup, air_type)
 
                     if not flights:
                         print("No flight data found.")
@@ -583,11 +808,18 @@ def scrape_flights(config):
 
                     # Save results
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"data/{origin}-{dest}-{date}-{timestamp}.md"
+                    # For round trip, include return date in filename
+                    if air_type == "1":
+                        filename = f"data/{origin}-{dest}-{dep_date}_to_{ret_date}-{timestamp}.md"
+                    else:
+                        filename = f"data/{origin}-{dest}-{dep_date}-{timestamp}.md"
                     os.makedirs("data", exist_ok=True)
 
                     with open(filename, 'w', encoding='utf-8') as f:
-                        f.write(f"# Flight Search Results for {origin} to {dest} on {date}\n\n")
+                        if air_type == "1":
+                            f.write(f"# Flight Search Results for {origin} to {dest}\nDeparture: {dep_date}, Return: {ret_date}\n\n")
+                        else:
+                            f.write(f"# Flight Search Results for {origin} to {dest} on {dep_date}\n\n")
                         f.write("```json\n")
                         f.write(json.dumps(flights, indent=2, ensure_ascii=False))
                         f.write("\n```\n")

@@ -218,6 +218,47 @@
         .comment-content em {{
             font-style: italic;
         }}
+        /* Round trip specific styles */
+        .flight-card-outbound {{
+            background: linear-gradient(135deg, #27ae60 0%, #d35400 100%);
+        }}
+        .flight-card-return {{
+            background: linear-gradient(135deg, #8e44ad 0%, #2980b9 100%);
+        }}
+        .trip-label {{
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.2);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            backdrop-filter: blur(10px);
+        }}
+        .trip-label-return {{
+            background: rgba(255,255,255,0.15);
+        }}
+        .stay-connector {{
+            text-align: center;
+            padding: 10px 0;
+            margin: -10px 0 10px 0;
+        }}
+        .stay-duration {{
+            display: inline-block;
+            background: linear-gradient(135deg, #f39c12 0%, #e74c3c 100%);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 0.95em;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }}
+        .stay-arrow {{
+            font-size: 1.5em;
+            margin-top: 5px;
+            color: #7f8c8d;
+        }}
         @media (max-width: 480px) {{
             .header h1 {{ font-size: 1.5em; }}
             .header .subtitle {{ font-size: 0.9em; }}
