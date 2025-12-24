@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  ai-air-ticket:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    shm_size: 2gb
+    # Batch job - runs once and exits, no restart needed
