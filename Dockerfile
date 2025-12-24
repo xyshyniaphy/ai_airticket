@@ -27,12 +27,15 @@ FROM python:3.12-slim
 # Set working directory
 WORKDIR /app
 
-# Install runtime dependencies for lxml and selenium
+# Install runtime dependencies for lxml and selenium, plus Chinese fonts
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2 \
     libxslt1.1 \
     chromium \
     chromium-driver \
+    fonts-noto-cjk \
+    fonts-wqy-microhei \
+    && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment from builder stage
