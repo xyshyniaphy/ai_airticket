@@ -45,55 +45,104 @@ def load_config():
     return config
 
 def render_html_to_png(html_file_path, png_file_path, config):
-    """Render HTML file to PNG using headless Chrome with mobile optimization."""
+    """Render HTML file to PNG using headless Chrome with mobile optimization.
+
+    Args:
+        html_file_path: Path to the HTML file to render
+        png_file_path: Path where the PNG will be saved
+        config: Configuration dict (not currently used, but kept for compatibility)
+
+    Returns:
+        Path to the PNG file if successful, None otherwise
+    """
+    driver = None
     try:
+        # Setup Chrome options for headless rendering
         chrome_options = Options()
-        # Essential for Docker and headless environments
-        chrome_options.add_argument("--headless")
+
+        # Essential options for Docker and headless environments
+        chrome_options.add_argument("--headless=new")  # Use new headless mode
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--disable-extensions")
-        
-        # Mobile optimization - simulate iPhone 12 Pro portrait mode
+
+        # Mobile viewport - optimize for vertical phone display
         chrome_options.add_argument("--window-size=390,844")
         chrome_options.add_argument("--user-agent=Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1")
-        
-        # Additional options for better rendering
+
+        # Additional rendering options
         chrome_options.add_argument("--hide-scrollbars")
         chrome_options.add_argument("--ignore-certificate-errors")
-        chrome_options.add_argument("--enable-logging")
-        chrome_options.add_argument("--log-level=0")
-        
+        chrome_options.add_argument("--disable-logging")
+        chrome_options.add_argument("--log-level=3")
+        chrome_options.add_argument("--disable-dev-tools")
+
         # Create driver
         driver = webdriver.Chrome(options=chrome_options)
-        
-        # Get absolute path for the HTML file
+        driver.set_script_timeout(30)
+        driver.set_page_load_timeout(30)
+
+        # Get absolute path for the HTML file and convert to file:// URL
         abs_html_path = os.path.abspath(html_file_path)
         file_url = f"file://{abs_html_path}"
-        
+
         print(f"Loading HTML file: {file_url}")
         driver.get(file_url)
-        
-        # Wait for page to load completely
-        time.sleep(3)
-        
-        # Get full page height for screenshot
-        total_height = driver.execute_script("return document.body.scrollHeight")
-        driver.set_window_size(390, total_height + 100)  # Add some padding
-        
-        # Take screenshot
+
+        # Wait for page load and fonts to render
+        time.sleep(2)
+
+        # Wait for all images and fonts to be loaded
+        driver.execute_script("""
+            // Wait for all images to load
+            const images = document.querySelectorAll('img');
+            images.forEach(img => {
+                if (!img.complete) {
+                    img.onload = () => console.log('Image loaded');
+                }
+            });
+        """)
+
+        # Additional wait for dynamic content
+        time.sleep(1)
+
+        # Get actual page dimensions
+        body_width = driver.execute_script("return document.body.scrollWidth")
+        body_height = driver.execute_script("return document.body.scrollHeight")
+
+        print(f"Page dimensions: {body_width}x{body_height}")
+
+        # Set window size to match content (with some padding)
+        driver.set_window_size(body_width, body_height + 20)
+
+        # Final wait after resize
+        time.sleep(0.5)
+
+        # Take full page screenshot
         driver.save_screenshot(png_file_path)
-        
-        # Cleanup
-        driver.quit()
-        
-        print(f"PNG screenshot saved to: {png_file_path}")
-        return png_file_path
-        
+
+        # Verify file was created
+        if os.path.exists(png_file_path) and os.path.getsize(png_file_path) > 0:
+            file_size_kb = os.path.getsize(png_file_path) / 1024
+            print(f"PNG screenshot saved: {png_file_path} ({file_size_kb:.1f} KB)")
+            return png_file_path
+        else:
+            print(f"Error: PNG file was not created or is empty")
+            return None
+
     except Exception as e:
-        print(f"Error rendering HTML to PNG: {e}")
+        print(f"Error rendering HTML to PNG: {type(e).__name__}: {e}")
         return None
+
+    finally:
+        # Always cleanup driver, even if an error occurred
+        if driver is not None:
+            try:
+                driver.quit()
+                print("Chrome driver closed")
+            except Exception as e:
+                print(f"Warning: Error closing driver: {e}")
 
 def send_telegram_photo(photo_path, config):
     """Send photo to Telegram channel."""
