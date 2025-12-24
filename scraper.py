@@ -134,6 +134,9 @@ def render_html_to_png(html_file_path, png_file_path, config):
         # Convert PNG to JPG with moderate quality
         if os.path.exists(temp_png_path):
             img = Image.open(temp_png_path)
+            original_width, original_height = img.size
+            print(f"Original image dimensions: {original_width}x{original_height}")
+
             # Convert to RGB (JPG doesn't support transparency)
             if img.mode in ('RGBA', 'LA', 'P'):
                 background = Image.new('RGB', img.size, (255, 255, 255))
@@ -144,8 +147,27 @@ def render_html_to_png(html_file_path, png_file_path, config):
             elif img.mode != 'RGB':
                 img = img.convert('RGB')
 
-            # Save as JPG with moderate quality (75)
-            img.save(png_file_path, 'JPEG', quality=75, optimize=True)
+            # Resize if dimensions exceed Telegram's hard limits
+            # Telegram accepts up to 10000px, use 9000px as safety margin
+            MAX_HEIGHT = 9000
+            MAX_WIDTH = 3000
+
+            if original_height > MAX_HEIGHT or original_width > MAX_WIDTH:
+                # Calculate scale factor (use the smaller ratio to fit within bounds)
+                height_ratio = MAX_HEIGHT / original_height
+                width_ratio = MAX_WIDTH / original_width
+                scale = min(height_ratio, width_ratio)
+
+                new_width = int(original_width * scale)
+                new_height = int(original_height * scale)
+                print(f"Resizing image to: {new_width}x{new_height} (scale: {scale:.2f})")
+
+                # Use high-quality resampling
+                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+            # Save as JPG with high quality to minimize compression artifacts
+            # (Telegram will compress further, so start with high quality)
+            img.save(png_file_path, 'JPEG', quality=95, optimize=True)
 
             # Delete temporary PNG file
             os.remove(temp_png_path)
