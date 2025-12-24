@@ -165,9 +165,8 @@ def render_html_to_png(html_file_path, png_file_path, config):
                 # Use high-quality resampling
                 img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-            # Save as JPG with high quality to minimize compression artifacts
-            # (Telegram will compress further, so start with high quality)
-            img.save(png_file_path, 'JPEG', quality=95, optimize=True)
+            # Save as JPG with moderate quality (sendDocument avoids Telegram compression)
+            img.save(png_file_path, 'JPEG', quality=75, optimize=True)
 
             # Delete temporary PNG file
             os.remove(temp_png_path)
@@ -658,9 +657,10 @@ Keep the summary_note concise (under 100 Chinese characters). Keep each flight c
             print(f"JPG screenshot saved to: {jpg_path}")
 
             if telegram_enabled:
-                # Send JPG to Telegram
-                from telegram_bot import send_telegram_photo
-                send_telegram_photo(jpg_path, config, caption=f"🛫 航班报告: {origin_airport_name} → {destination_airport_name} ({today_date})")
+                # Send JPG to Telegram as document (no compression)
+                from telegram_bot import send_telegram_document
+                filename = f"flight_report_{origin_airport_code}_{destination_airport_code}.jpg"
+                send_telegram_document(jpg_path, config, caption=f"🛫 航班报告: {origin_airport_name} → {destination_airport_name} ({today_date})", filename=filename)
 
                 # Clean up HTML file after successful JPG generation
                 try:
