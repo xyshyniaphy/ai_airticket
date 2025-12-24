@@ -244,12 +244,68 @@ def generate_flight_card_html(flight, index):
     </div>'''
 
 
+def normalize_flight_data(flights):
+    """Normalize flight data from different formats to the standard format.
+
+    Handles old format (with 'schedule' key) and new format (with 'departure'/'arrival' keys).
+    """
+    normalized = []
+    for flight in flights:
+        # Check if this is the old format with 'schedule' key
+        if 'schedule' in flight:
+            schedule = flight['schedule']
+            normalized_flight = {
+                'provider_name': flight.get('provider_name', 'N/A'),
+                'price': flight.get('price', 'N/A'),
+                'trip_type': schedule.get('trip_type', 'N/A'),
+                'airline': flight.get('airline', 'N/A'),
+                'departure': {
+                    'date': '',  # Old format doesn't have date
+                    'time': schedule.get('departure_time', 'N/A'),
+                    'airport': schedule.get('departure_airport', 'N/A')
+                },
+                'arrival': {
+                    'date': '',  # Old format doesn't have date
+                    'time': schedule.get('arrival_time', 'N/A'),
+                    'airport': schedule.get('arrival_airport', 'N/A')
+                },
+                'duration': schedule.get('duration', 'N/A'),
+                'transfers': {
+                    'count_str': schedule.get('transfers', 'N/A'),
+                    'airports': []  # Old format doesn't have airport list
+                },
+                'plane_model': flight.get('plane_model', 'N/A'),
+                'baggage': flight.get('baggage', []),
+                'source_url': flight.get('source_url', '#')
+            }
+            normalized.append(normalized_flight)
+        else:
+            # Already in new format, just ensure all required fields exist
+            normalized_flight = {
+                'provider_name': flight.get('provider_name', 'N/A'),
+                'price': flight.get('price', 'N/A'),
+                'trip_type': flight.get('trip_type', 'N/A'),
+                'airline': flight.get('airline', 'N/A'),
+                'departure': flight.get('departure', {'date': '', 'time': 'N/A', 'airport': 'N/A'}),
+                'arrival': flight.get('arrival', {'date': '', 'time': 'N/A', 'airport': 'N/A'}),
+                'duration': flight.get('duration', 'N/A'),
+                'transfers': flight.get('transfers', {'count_str': 'N/A', 'airports': []}),
+                'plane_model': flight.get('plane_model', 'N/A'),
+                'baggage': flight.get('baggage', []),
+                'source_url': flight.get('source_url', '#')
+            }
+            normalized.append(normalized_flight)
+    return normalized
+
+
 def generate_report(flights, config, airport_data):
     """Generates a modern HTML webpage report and renders it as PNG using headless Chrome."""
     if not flights:
         print("No flights to generate a report for.")
         return
 
+    # Normalize flight data to handle both old and new formats
+    flights = normalize_flight_data(flights)
     top_3_flights = flights[:3]
 
     origin_airport_code = top_3_flights[0]['departure']['airport']
